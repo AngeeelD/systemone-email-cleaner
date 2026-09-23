@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"emailcleaner/internal/config"
+	"emailcleaner/internal/gmail"
 )
 
 const (
@@ -21,6 +22,8 @@ const (
 type gmailAccess interface {
 	EnsureLabel(ctx context.Context, name string) (string, error)
 	Profile(ctx context.Context) (string, error)
+	ListMessages(ctx context.Context, query string, max int) ([]string, error)
+	GetMessage(ctx context.Context, id string) (*gmail.Message, error)
 }
 
 type app struct {
@@ -58,6 +61,8 @@ func (a *app) run(args []string) int {
 		return a.status(rest)
 	case "setup":
 		return a.setup(rest)
+	case "list":
+		return a.list(rest)
 	case "help", "-h", "--help":
 		a.usage(a.stderr)
 		return exitOK
@@ -74,6 +79,7 @@ func (a *app) usage(w io.Writer) {
 Commands:
   status   Report token health and the current label set.
   setup    Authorize with Gmail and create any missing labels. Idempotent.
+  list     Print the headers of unprocessed inbox messages.
 
 Flags are per command; run "emailcleaner <command> -h" for details.
 `)

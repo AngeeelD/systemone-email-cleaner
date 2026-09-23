@@ -11,12 +11,15 @@ import (
 	"testing"
 
 	"emailcleaner/internal/config"
+	"emailcleaner/internal/gmail"
 )
 
 type fakeGmail struct {
 	account  string
 	ensured  []string
 	labelErr error
+	ids      []string
+	messages map[string]*gmail.Message
 }
 
 func (f *fakeGmail) EnsureLabel(_ context.Context, name string) (string, error) {
@@ -28,6 +31,17 @@ func (f *fakeGmail) EnsureLabel(_ context.Context, name string) (string, error) 
 }
 
 func (f *fakeGmail) Profile(context.Context) (string, error) { return f.account, nil }
+
+func (f *fakeGmail) ListMessages(context.Context, string, int) ([]string, error) {
+	return f.ids, nil
+}
+
+func (f *fakeGmail) GetMessage(_ context.Context, id string) (*gmail.Message, error) {
+	if m, ok := f.messages[id]; ok {
+		return m, nil
+	}
+	return nil, errors.New("no such message: " + id)
+}
 
 func newSetupApp(t *testing.T, fake *fakeGmail) (*app, *bytes.Buffer, *bytes.Buffer) {
 	t.Helper()
