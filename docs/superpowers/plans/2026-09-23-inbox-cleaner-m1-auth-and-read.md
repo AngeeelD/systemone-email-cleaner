@@ -812,11 +812,13 @@ func TestLoadTokenRejectsCorruptFile(t *testing.T) {
 func TestCredentialsConfigReadsDesktopClient(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "client_secret.json")
 	body, _ := json.Marshal(map[string]any{
-		"installed": map[string]string{
+		"installed": map[string]any{
 			"client_id":     "id.apps.googleusercontent.com",
 			"client_secret": "secret",
 			"auth_uri":      "https://accounts.google.com/o/oauth2/auth",
 			"token_uri":     "https://oauth2.googleapis.com/token",
+			// google.ConfigFromJSON rejects a client secret without this key.
+			"redirect_uris": []string{"http://localhost"},
 		},
 	})
 	if err := os.WriteFile(path, body, 0o600); err != nil {
@@ -1042,6 +1044,26 @@ Add `"encoding/json"` to the import block.
 
 Note: `gmailapi` is imported for `GmailModifyScope`-adjacent use in later tasks. If the linter complains that it is unused in this task, either remove it here and add it in Task 4, or use `gmailapi.GmailModifyScope` instead of the local constant. **Prefer removing the import in this task and adding it in Task 4** — this file must compile on its own.
 
+**Correction to the `Authorize` code above (ruling R6, applied during execution).**
+The block passes the literal `"state"` to `AuthCodeURL` and never validates a
+returned `state`. That is a CSRF control that does nothing: a constant is not a
+nonce, and the callback handler would accept an authorization code from anyone who
+can reach the ephemeral loopback port. Replace it with:
+
+1. A random, unguessable `state` generated per authorization from `crypto/rand`
+   (hex or base64).
+2. A comparison of `r.URL.Query().Get("state")` against that value inside the
+   `/callback` handler, before the code is sent on the channel. On mismatch,
+   respond with an error and do **not** exchange the code.
+3. PKCE, which is the primary code-interception defence for native apps:
+   `verifier := oauth2.GenerateVerifier()`, pass
+   `oauth2.S256ChallengeOption(verifier)` to `AuthCodeURL`, and
+   `oauth2.VerifierOption(verifier)` to `cfg.Exchange`.
+
+The `Authorize` signature does not change, so no later task is affected. This
+needs a covering test: a callback carrying a wrong `state` must produce an error
+and must leave no token file behind.
+
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `go test ./internal/gmail/ -v`
@@ -1097,9 +1119,13 @@ Expected: PASS in all three packages.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add internal/gmail/ cmd/emailcleaner/
+git add internal/gmail/ cmd/emailcleaner/ go.mod go.sum
 git commit -m "feat: add Gmail OAuth loopback flow and token store"
 ```
+
+`go.mod` and `go.sum` belong in this commit: this task is the first to pull in
+`golang.org/x/oauth2`, and a commit that leaves the dependency out produces a tree
+that does not build.
 
 ---
 
@@ -1750,9 +1776,12 @@ Expected: PASS. If `TestListMessagesFollowsPagination` reports a path mismatch, 
 - [ ] **Step 9: Commit**
 
 ```bash
-git add internal/gmail/
+git add internal/gmail/ go.mod go.sum
 git commit -m "feat: add Gmail client with paginated listing and message translation"
 ```
+
+Include `go.mod` and `go.sum`: this task is the first to import the Gmail API
+package, so the dependency requirement changes here.
 
 ---
 
