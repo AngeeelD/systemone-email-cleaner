@@ -39,10 +39,10 @@ func main() {
 		configPath: "config.yaml",
 		stdout:     os.Stdout,
 		stderr:     os.Stderr,
-		authorize:  authorize,
 		checkToken: checkToken,
 		openGmail:  newGmailAccess,
 	}
+	a.authorize = a.interactiveAuthorize // method value; see ruling R8
 	os.Exit(a.run(os.Args[1:]))
 }
 

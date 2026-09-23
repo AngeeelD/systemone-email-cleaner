@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -101,5 +104,45 @@ func TestSetupReportsMissingConfigAsUsageError(t *testing.T) {
 	}
 	if !strings.Contains(errOut.String(), "config.example.yaml") {
 		t.Errorf("stderr = %q, want a hint pointing at config.example.yaml", errOut.String())
+	}
+}
+
+// TestAuthorizeSendsConsentURLToInjectedStdout proves the consent URL flows to
+// the app's injected writer rather than the process-global os.Stdout. An
+// already-cancelled context keeps gmail.Authorize from blocking on a callback:
+// the URL is printed before it selects on ctx.Done().
+func TestAuthorizeSendsConsentURLToInjectedStdout(t *testing.T) {
+	const creds = `{"installed":{"client_id":"id","client_secret":"secret",` +
+		`"auth_uri":"https://accounts.google.com/o/oauth2/auth",` +
+		`"token_uri":"https://oauth2.googleapis.com/token",` +
+		`"redirect_uris":["http://localhost"]}}`
+	dir := t.TempDir()
+	credsPath := filepath.Join(dir, "client_secret.json")
+	if err := os.WriteFile(credsPath, []byte(creds), 0o600); err != nil {
+		t.Fatalf("write credentials: %v", err)
+	}
+	cfgPath := filepath.Join(dir, "config.yaml")
+	yaml := fmt.Sprintf("gmail:\n  credentials_file: %s\n  token_file: %s\n",
+		credsPath, filepath.Join(dir, "token.json"))
+	if err := os.WriteFile(cfgPath, []byte(yaml), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	var out bytes.Buffer
+	a := &app{stdout: &out, stderr: &bytes.Buffer{}}
+	// Mirror main()'s wiring: the injected seam points at the real method.
+	a.authorize = a.interactiveAuthorize
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := a.authorize(ctx, cfg); err == nil {
+		t.Error("authorize = nil error, want a cancellation error")
+	}
+	if !strings.Contains(out.String(), "Open this URL") {
+		t.Errorf("stdout = %q, want the consent URL from the injected writer", out.String())
 	}
 }

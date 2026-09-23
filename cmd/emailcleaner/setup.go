@@ -4,16 +4,18 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"os"
 	"sort"
 
 	"emailcleaner/internal/config"
 	"emailcleaner/internal/gmail"
 )
 
-// authorize runs the interactive OAuth flow, sending the consent URL to stdout.
-func authorize(ctx context.Context, cfg *config.Config) error {
-	_, err := gmail.Authorize(ctx, cfg.Gmail.CredentialsFile, cfg.Gmail.TokenFile, os.Stdout)
+// interactiveAuthorize runs the interactive OAuth flow, sending the consent URL
+// to the app's stdout so the whole command's output stays capturable. It is
+// named apart from the app.authorize seam because a field and a method on the
+// same type may not share a name.
+func (a *app) interactiveAuthorize(ctx context.Context, cfg *config.Config) error {
+	_, err := gmail.Authorize(ctx, cfg.Gmail.CredentialsFile, cfg.Gmail.TokenFile, a.stdout)
 	return err
 }
 
