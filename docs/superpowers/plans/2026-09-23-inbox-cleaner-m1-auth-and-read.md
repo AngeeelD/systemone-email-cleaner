@@ -1826,6 +1826,18 @@ package, so the dependency requirement changes here.
 - Consumes: `*Client` from Task 4.
 - Produces: `(*Client).EnsureLabel(ctx context.Context, name string) (string, error)` returning the Gmail label ID.
 
+**Ruling R7 applies to this task too.** The correction note lives in Task 4's
+section, but the two calls this task writes are among the ones it names:
+
+```go
+c.users.Labels.List("me").Context(ctx).Do()
+c.users.Labels.Create("me", &gmailapi.Label{…}).Context(ctx).Do()
+```
+
+Without `.Context(ctx)` the `ctx` argument `EnsureLabel` accepts is silently
+dropped and cancellation never reaches the request. Do not transcribe this task's
+code block below without adding it.
+
 - [ ] **Step 1: Write the failing test**
 
 Create `internal/gmail/labels_test.go`:
