@@ -450,7 +450,7 @@ func TestRunHelpSucceeds(t *testing.T) {
 	if got := a.run([]string{"help"}); got != exitOK {
 		t.Errorf("run(help) = %d, want %d", got, exitOK)
 	}
-	if !strings.Contains(errOut.String(), "setup") {
+	if !strings.Contains(errOut.String(), "status") {
 		t.Errorf("stderr = %q, want the command list", errOut.String())
 	}
 }
@@ -538,10 +538,6 @@ func (a *app) run(args []string) int {
 
 	cmd, rest := args[0], args[1:]
 	switch cmd {
-	case "setup":
-		return a.setup(rest)
-	case "list":
-		return a.list(rest)
 	case "status":
 		return a.status(rest)
 	case "help", "-h", "--help":
@@ -558,8 +554,6 @@ func (a *app) usage(w io.Writer) {
 	fmt.Fprintf(w, `usage: emailcleaner <command>
 
 Commands:
-  setup    Authorize with Gmail and create any missing labels. Idempotent.
-  list     Print the headers of unprocessed inbox messages.
   status   Report token health and the current label set.
 
 Flags are per command; run "emailcleaner <command> -h" for details.
@@ -577,6 +571,8 @@ func (a *app) loadConfig() (*config.Config, int) {
 	return cfg, exitOK
 }
 ```
+
+**Note on the dispatcher.** The `switch` and the usage text contain only the commands that exist right now. Task 6 adds the `setup` case and its usage line; Task 7 adds `list`. Do not add cases for commands that are not implemented — referencing a missing method stops the whole package from compiling.
 
 - [ ] **Step 4: Write the status command**
 
@@ -1916,7 +1912,7 @@ git commit -m "feat: add idempotent Gmail label creation"
 **Files:**
 - Create: `cmd/emailcleaner/setup.go`
 - Create: `cmd/emailcleaner/setup_test.go`
-- Modify: `cmd/emailcleaner/main.go` (app struct fields, `main()` wiring)
+- Modify: `cmd/emailcleaner/main.go` (app struct fields, `main()` wiring, the `setup` case in the dispatcher and its usage line)
 - Modify: `cmd/emailcleaner/main_test.go` (helpers)
 
 **Interfaces:**
@@ -2114,6 +2110,17 @@ func main() {
 }
 ```
 
+Then add the command to the dispatcher in the same file: the `setup` case in `run`, and its line in the `usage` text.
+
+```go
+	case "setup":
+		return a.setup(rest)
+```
+
+```go
+  setup    Authorize with Gmail and create any missing labels. Idempotent.
+```
+
 - [ ] **Step 4: Write the setup command**
 
 Create `cmd/emailcleaner/setup.go`:
@@ -2245,7 +2252,7 @@ git commit -m "feat: add setup command that authorizes and creates labels"
 **Files:**
 - Create: `cmd/emailcleaner/list.go`
 - Create: `cmd/emailcleaner/list_test.go`
-- Modify: `cmd/emailcleaner/main.go` (`gmailAccess` gains two read methods)
+- Modify: `cmd/emailcleaner/main.go` (`gmailAccess` gains two read methods, plus the `list` case in the dispatcher and its usage line)
 - Modify: `cmd/emailcleaner/setup_test.go` (`fakeGmail` gains the two read methods)
 
 **Interfaces:**
@@ -2512,6 +2519,17 @@ func (f *fakeGmail) GetMessage(_ context.Context, id string) (*gmail.Message, er
 ```
 
 Add `"emailcleaner/internal/gmail"` to that file's imports.
+
+Then add the command to the dispatcher in the same file: the `list` case in `run`, and its line in the `usage` text.
+
+```go
+	case "list":
+		return a.list(rest)
+```
+
+```go
+  list     Print the headers of unprocessed inbox messages.
+```
 
 - [ ] **Step 5: Add the listing tests**
 
