@@ -32,7 +32,11 @@ func newTestApp(t *testing.T) (*app, *bytes.Buffer, *bytes.Buffer) {
 		stdout:     &out,
 		stderr:     &errOut,
 	}
+	a.authorize = func(context.Context, *config.Config) error { return nil }
 	a.checkToken = func(context.Context, *config.Config) error { return nil }
+	a.openGmail = func(context.Context, *config.Config) (gmailAccess, error) {
+		return &fakeGmail{account: "me@example.com"}, nil
+	}
 	return a, &out, &errOut
 }
 

@@ -17,14 +17,21 @@ const (
 	exitReAuth  = 3
 )
 
+// gmailAccess is everything the CLI needs from Gmail in this milestone.
+type gmailAccess interface {
+	EnsureLabel(ctx context.Context, name string) (string, error)
+	Profile(ctx context.Context) (string, error)
+}
+
 type app struct {
 	configPath string
 	stdout     io.Writer
 	stderr     io.Writer
 
-	// checkToken is a field so tests can inject failures. The real value is
-	// wired in main().
+	// The following are fields so tests can run without Google or a browser.
+	authorize  func(context.Context, *config.Config) error
 	checkToken func(context.Context, *config.Config) error
+	openGmail  func(context.Context, *config.Config) (gmailAccess, error)
 }
 
 func main() {
@@ -32,7 +39,9 @@ func main() {
 		configPath: "config.yaml",
 		stdout:     os.Stdout,
 		stderr:     os.Stderr,
+		authorize:  authorize,
 		checkToken: checkToken,
+		openGmail:  newGmailAccess,
 	}
 	os.Exit(a.run(os.Args[1:]))
 }
@@ -47,6 +56,8 @@ func (a *app) run(args []string) int {
 	switch cmd {
 	case "status":
 		return a.status(rest)
+	case "setup":
+		return a.setup(rest)
 	case "help", "-h", "--help":
 		a.usage(a.stderr)
 		return exitOK
@@ -62,6 +73,7 @@ func (a *app) usage(w io.Writer) {
 
 Commands:
   status   Report token health and the current label set.
+  setup    Authorize with Gmail and create any missing labels. Idempotent.
 
 Flags are per command; run "emailcleaner <command> -h" for details.
 `)
