@@ -414,7 +414,7 @@ func newTestApp(t *testing.T) (*app, *bytes.Buffer, *bytes.Buffer) {
 	t.Helper()
 	var out, errOut bytes.Buffer
 	a := &app{
-		configPath: t.TempDir() + "/config.yaml",
+		configPath: writeConfig(t),
 		stdout:     &out,
 		stderr:     &errOut,
 	}
@@ -478,6 +478,24 @@ func TestStatusReportsGenericFailureAsExitCodeOne(t *testing.T) {
 	if got := a.run([]string{"status"}); got != exitGeneric {
 		t.Errorf("run(status) = %d, want %d", got, exitGeneric)
 	}
+}
+```
+
+Add these two imports and this helper to that test file; the block above omits
+them deliberately so the point is not lost in a wall of code. `"os"` and
+`"path/filepath"` are needed by the helper, and **`newTestApp` must point at a
+config file that actually exists**: a missing file is a usage error (exit 2),
+which would mask the token behaviour the two `status` tests exist to assert.
+
+```go
+// writeConfig writes a minimal config file and returns its path.
+func writeConfig(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte("gmail:\n  token_file: token.json\n"), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	return path
 }
 ```
 
@@ -2037,7 +2055,7 @@ func TestSetupReportsMissingConfigAsUsageError(t *testing.T) {
 }
 ```
 
-Add this helper to `cmd/emailcleaner/main_test.go`:
+`writeConfig` already exists in `cmd/emailcleaner/main_test.go` from Task 2 — do not add a second copy. Only `newTestApp` changes here, to set the two new injected fields:
 
 ```go
 func writeConfig(t *testing.T) string {
