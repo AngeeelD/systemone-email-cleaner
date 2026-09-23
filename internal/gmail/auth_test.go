@@ -333,6 +333,46 @@ func TestAuthorizeRejectsWrongState(t *testing.T) {
 	}
 }
 
+// TestAuthorizeRejectsTokenWithoutRefreshToken drives the full loopback flow
+// against a token endpoint that returns an access token with no refresh_token.
+// Authorize must fail and write no token file, because a credential without a
+// refresh token dies within the hour.
+func TestAuthorizeRejectsTokenWithoutRefreshToken(t *testing.T) {
+	tokenSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"access_token":"a","token_type":"Bearer","expires_in":3600}`)
+	}))
+	t.Cleanup(tokenSrv.Close)
+
+	creds := writeCredentialsWithTokenURI(t, tokenSrv.URL)
+	tokenPath := filepath.Join(t.TempDir(), "token.json")
+	out := &syncBuffer{}
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := Authorize(context.Background(), creds, tokenPath, out)
+		errCh <- err
+	}()
+
+	authURL := waitForAuthURL(t, out)
+	callback := callbackWith(t, authURL, url.Values{
+		"state": {authURL.Query().Get("state")},
+		"code":  {"real-code"},
+	})
+	resp, err := http.Get(callback)
+	if err != nil {
+		t.Fatalf("GET callback: %v", err)
+	}
+	io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
+
+	if err := <-errCh; err == nil || !strings.Contains(err.Error(), "no refresh token") {
+		t.Errorf("Authorize() error = %v, want a missing-refresh-token error", err)
+	}
+	if _, statErr := os.Stat(tokenPath); statErr == nil {
+		t.Error("Authorize() wrote a token without a refresh token")
+	}
+}
+
 func TestAuthorizeStopsWhenContextCancelled(t *testing.T) {
 	creds := writeCredentials(t)
 	out := &syncBuffer{}

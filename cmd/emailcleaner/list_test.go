@@ -83,6 +83,7 @@ func TestTruncateCountsRunesNotBytes(t *testing.T) {
 		{"exactly max", "hola", 4, "hola"},
 		{"accents are not split", "facturación electrónica", 10, "facturaci…"},
 		{"trimmed first", "  hola  ", 10, "hola"},
+		{"negative width returns empty", "hola", -1, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -140,6 +141,17 @@ func TestListRejectsNegativeLimit(t *testing.T) {
 
 	if got := a.run([]string{"list", "--limit", "-1"}); got != exitUsage {
 		t.Errorf("list exit = %d, want %d", got, exitUsage)
+	}
+}
+
+func TestListRejectsZeroLimit(t *testing.T) {
+	a, _, errOut := newSetupApp(t, &fakeGmail{})
+
+	if got := a.run([]string{"list", "--limit", "0"}); got != exitUsage {
+		t.Errorf("list exit = %d, want %d (stderr: %s)", got, exitUsage, errOut.String())
+	}
+	if !strings.Contains(errOut.String(), "at least 1") {
+		t.Errorf("stderr = %q, want it to state the minimum", errOut.String())
 	}
 }
 

@@ -45,6 +45,9 @@ func formatMessage(m *gmail.Message) string {
 // truncate shortens s to at most max runes, appending an ellipsis. It counts
 // runes so accented text is never cut mid-character.
 func truncate(s string, max int) string {
+	if max <= 0 {
+		return ""
+	}
 	runes := []rune(strings.TrimSpace(s))
 	if len(runes) <= max {
 		return string(runes)
@@ -59,12 +62,12 @@ func (a *app) list(args []string) int {
 	fs := flag.NewFlagSet("list", flag.ContinueOnError)
 	fs.SetOutput(a.stderr)
 	fs.StringVar(&a.configPath, "config", a.configPath, "path to the config file")
-	limit := fs.Int("limit", 20, "maximum number of messages to examine")
+	limit := fs.Int("limit", 20, "maximum number of messages to examine (at least 1)")
 	if err := fs.Parse(args); err != nil {
 		return exitUsage
 	}
-	if *limit < 0 {
-		fmt.Fprintf(a.stderr, "--limit must not be negative\n")
+	if *limit <= 0 {
+		fmt.Fprintf(a.stderr, "--limit must be at least 1\n")
 		return exitUsage
 	}
 

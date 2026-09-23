@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -106,7 +107,10 @@ func Authorize(ctx context.Context, credentialsFile, tokenFile string, out io.Wr
 		respond("Authorization complete. You can close this tab.")
 		codeCh <- code
 	})
-	srv := &http.Server{Handler: mux}
+	srv := &http.Server{
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
 	go func() { _ = srv.Serve(ln) }()
 	defer srv.Close()
 
@@ -131,6 +135,12 @@ func Authorize(ctx context.Context, credentialsFile, tokenFile string, out io.Wr
 	tok, err := cfg.Exchange(ctx, code, oauth2.VerifierOption(verifier))
 	if err != nil {
 		return nil, fmt.Errorf("exchange authorization code: %w", err)
+	}
+	// AccessTypeOffline plus prompt=consent should always yield a refresh token.
+	// If Google returns none the credential would die within the hour, so fail
+	// now with a clear instruction rather than saving a short-lived token.
+	if tok.RefreshToken == "" {
+		return nil, errors.New("authorization returned no refresh token; re-run `emailcleaner setup`")
 	}
 	if err := SaveToken(tokenFile, tok); err != nil {
 		return nil, err
