@@ -8,8 +8,8 @@ config.yaml
 # Audit logs — contain message subjects and sender addresses
 audit/
 
-# Build output
-emailcleaner
+# Build output (anchored: unanchored "emailcleaner" also matched cmd/emailcleaner/)
+/emailcleaner
 
 # Subagent-driven-development scratch (ledger, briefs, review packages)
 .superpowers/
