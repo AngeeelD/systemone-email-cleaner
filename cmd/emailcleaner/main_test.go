@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"emailcleaner/internal/config"
+	"emailcleaner/internal/gmail"
 )
 
 // writeConfig writes a minimal valid config file and returns its path. The
@@ -71,7 +72,7 @@ func TestRunHelpSucceeds(t *testing.T) {
 func TestStatusReportsExpiredTokenAsExitCodeThree(t *testing.T) {
 	a, _, errOut := newTestApp(t)
 	a.checkToken = func(context.Context, *config.Config) error {
-		return errors.New("gmail token expired or revoked; run `emailcleaner setup`")
+		return gmail.ErrTokenExpired
 	}
 
 	if got := a.run([]string{"status"}); got != exitReAuth {

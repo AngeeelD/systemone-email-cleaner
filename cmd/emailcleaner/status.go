@@ -2,17 +2,17 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
-	"strings"
 
 	"emailcleaner/internal/config"
+	"emailcleaner/internal/gmail"
 )
 
 // checkToken validates the stored Gmail token without touching the mailbox.
-// It is the real implementation behind app.checkToken.
-func checkToken(_ context.Context, _ *config.Config) error {
-	return nil // wired in Task 3
+func checkToken(ctx context.Context, cfg *config.Config) error {
+	return gmail.CheckToken(ctx, cfg.Gmail.CredentialsFile, cfg.Gmail.TokenFile)
 }
 
 func (a *app) status(args []string) int {
@@ -44,7 +44,6 @@ func (a *app) status(args []string) int {
 }
 
 // isReAuth reports whether err means the operator must re-run setup.
-// Replaced by a call to gmail's sentinel in Task 3.
 func isReAuth(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "expired or revoked")
+	return errors.Is(err, gmail.ErrTokenExpired)
 }
