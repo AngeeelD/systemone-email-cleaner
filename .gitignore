@@ -1,0 +1,12 @@
+# Secrets — never commit
+client_secret.json
+token.json
+
+# Local config (endpoint and thresholds are machine-specific)
+config.yaml
+
+# Audit logs — contain message subjects and sender addresses
+audit/
+
+# Build output
+emailcleaner
