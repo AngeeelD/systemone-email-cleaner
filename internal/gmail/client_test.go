@@ -159,3 +159,49 @@ func TestProfileReturnsEmailAddress(t *testing.T) {
 		t.Errorf("Profile() = %q, want me@example.com", got)
 	}
 }
+
+// The generated client only carries a context into the request when the call's
+// Context method is used; without it, cancellation is silently dropped. These
+// tests pass an already-cancelled context and require the call to fail rather
+// than reach the fake server and succeed.
+func TestListMessagesHonoursCancelledContext(t *testing.T) {
+	c := newFakeServer(t, func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(t, w, map[string]any{"messages": []map[string]string{{"id": "a"}}})
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := c.ListMessages(ctx, "in:inbox", 1); err == nil {
+		t.Fatal("ListMessages() error = nil, want a context error")
+	}
+}
+
+func TestGetMessageHonoursCancelledContext(t *testing.T) {
+	c := newFakeServer(t, func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(t, w, map[string]any{
+			"id": "a",
+			"payload": map[string]any{
+				"mimeType": "text/plain",
+				"body":     map[string]string{"data": b64("cuerpo")},
+			},
+		})
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := c.GetMessage(ctx, "a"); err == nil {
+		t.Fatal("GetMessage() error = nil, want a context error")
+	}
+}
+
+func TestProfileHonoursCancelledContext(t *testing.T) {
+	c := newFakeServer(t, func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(t, w, map[string]string{"emailAddress": "me@example.com"})
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := c.Profile(ctx); err == nil {
+		t.Fatal("Profile() error = nil, want a context error")
+	}
+}

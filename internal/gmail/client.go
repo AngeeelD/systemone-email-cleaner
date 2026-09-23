@@ -50,7 +50,10 @@ func (c *Client) ListMessages(ctx context.Context, query string, max int) ([]str
 			}
 		}
 
-		call := c.users.Messages.List("me").Q(query).MaxResults(int64(pageSize))
+		// Context(ctx) must be set on every iteration: the generated client
+		// only carries a context into the request through this method, and the
+		// call is rebuilt on each page.
+		call := c.users.Messages.List("me").Q(query).MaxResults(int64(pageSize)).Context(ctx)
 		if pageToken != "" {
 			call = call.PageToken(pageToken)
 		}
@@ -81,7 +84,7 @@ func (c *Client) ListMessages(ctx context.Context, query string, max int) ([]str
 // GetMessage fetches one message with format=full, which returns both headers
 // and body for the same 20 quota units that format=metadata costs.
 func (c *Client) GetMessage(ctx context.Context, id string) (*Message, error) {
-	m, err := c.users.Messages.Get("me", id).Format("full").Do()
+	m, err := c.users.Messages.Get("me", id).Format("full").Context(ctx).Do()
 	if err != nil {
 		return nil, fmt.Errorf("get message %s: %w", id, err)
 	}
@@ -90,7 +93,7 @@ func (c *Client) GetMessage(ctx context.Context, id string) (*Message, error) {
 
 // Profile returns the authenticated account's email address.
 func (c *Client) Profile(ctx context.Context) (string, error) {
-	p, err := c.users.GetProfile("me").Do()
+	p, err := c.users.GetProfile("me").Context(ctx).Do()
 	if err != nil {
 		return "", fmt.Errorf("get profile: %w", err)
 	}
