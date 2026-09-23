@@ -1773,6 +1773,37 @@ func (c *Client) Profile(ctx context.Context) (string, error) {
 Run: `go test ./internal/gmail/ -v`
 Expected: PASS. If `TestListMessagesFollowsPagination` reports a path mismatch, adjust the suffix in the handler — the service prefix differs between library versions and the assertion is intentionally anchored to the suffix.
 
+**Correction to every generated Gmail call in this plan (ruling R7, applied during
+execution).** The code blocks above call the generated client without a context:
+
+```go
+c.users.Messages.List("me").Q(query).MaxResults(int64(pageSize))
+c.users.Messages.Get("me", id).Format("full").Do()
+c.users.GetProfile("me").Do()
+c.users.Labels.List("me").Do()        // Task 5
+c.users.Labels.Create("me", &gmailapi.Label{…}).Do()   // Task 5
+```
+
+`google-api-go-client` stores the context in a `ctx_` field that only
+`.Context(ctx)` sets, and `gensupport.SendRequest` falls back to
+`client.Do(req)` when it is nil. So as written the `ctx` argument every one of
+these methods receives is **silently dropped**: cancellation and deadlines never
+reach the HTTP request, and a stalled connection hangs the run with no way to
+interrupt it. That defeats the cancellation the spec's error handling depends on.
+
+Every generated call in this plan must carry `.Context(ctx)`:
+
+```go
+c.users.Messages.List("me").Q(query).MaxResults(int64(pageSize)).Context(ctx)
+c.users.Messages.Get("me", id).Format("full").Context(ctx).Do()
+c.users.GetProfile("me").Context(ctx).Do()
+c.users.Labels.List("me").Context(ctx).Do()
+c.users.Labels.Create("me", &gmailapi.Label{…}).Context(ctx).Do()
+```
+
+This is testable and must be covered: a call made with an already-cancelled
+context must return an error rather than succeeding.
+
 - [ ] **Step 9: Commit**
 
 ```bash
