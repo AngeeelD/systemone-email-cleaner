@@ -2192,10 +2192,10 @@ func main() {
 		configPath: "config.yaml",
 		stdout:     os.Stdout,
 		stderr:     os.Stderr,
-		authorize:  authorize,
 		checkToken: checkToken,
 		openGmail:  newGmailAccess,
 	}
+	a.authorize = a.interactiveAuthorize // method value; see ruling R8
 	os.Exit(a.run(os.Args[1:]))
 }
 ```
@@ -2229,9 +2229,19 @@ import (
 	"emailcleaner/internal/gmail"
 )
 
-// authorize runs the interactive OAuth flow, sending the consent URL to stdout.
-func authorize(ctx context.Context, cfg *config.Config) error {
-	_, err := gmail.Authorize(ctx, cfg.Gmail.CredentialsFile, cfg.Gmail.TokenFile, os.Stdout)
+// authorize runs the interactive OAuth flow, sending the consent URL to the
+// app's stdout so the whole command's output stays capturable.
+//
+// Ruling R8: this used to write to the process-global os.Stdout, which split the
+// command's output contract — every other line setup prints goes to a.stdout and
+// this, the one string the user must act on, bypassed it. It is a method now.
+//
+// The method must NOT be named `authorize`: Go forbids a method whose name
+// collides with a field on the same type, so `a.authorize = a.authorize` does not
+// compile ("field and method with the same name"). Name it `interactiveAuthorize`
+// and assign `a.authorize = a.interactiveAuthorize` in main().
+func (a *app) interactiveAuthorize(ctx context.Context, cfg *config.Config) error {
+	_, err := gmail.Authorize(ctx, cfg.Gmail.CredentialsFile, cfg.Gmail.TokenFile, a.stdout)
 	return err
 }
 
