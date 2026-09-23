@@ -1,0 +1,23 @@
+# Copy to config.yaml and edit. config.yaml is gitignored.
+gmail:
+  credentials_file: client_secret.json
+  token_file: token.json
+laya:
+  endpoint: http://192.168.1.50:8000
+  api_key_env: LAYA_API_KEY
+  timeout: 30s
+  workers: 8
+policy:
+  min_confidence_junk: 0.90
+  min_confidence_topic: 0.70
+labels:
+  people: cleaner/people
+  action: cleaner/action
+  security: cleaner/security
+  accounts: cleaner/accounts
+  opportunities: cleaner/opportunities
+  unclassified: cleaner/unclassified
+extract:
+  body_preview_chars: 800
+audit:
+  dir: audit
