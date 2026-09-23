@@ -3,6 +3,8 @@ package gmail
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,6 +25,16 @@ const GmailModifyScope = "https://www.googleapis.com/auth/gmail.modify"
 
 // ErrTokenExpired means the operator must re-run `emailcleaner setup`.
 var ErrTokenExpired = errors.New("gmail token expired or revoked")
+
+// randomState returns a fresh, unguessable OAuth state value. The callback must
+// echo it back unchanged, binding the authorization response to this request.
+func randomState() (string, error) {
+	var b [32]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", fmt.Errorf("generate oauth state: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(b[:]), nil
+}
 
 func credentialsConfig(credentialsFile string) (*oauth2.Config, error) {
 	b, err := os.ReadFile(credentialsFile)
@@ -46,6 +58,14 @@ func Authorize(ctx context.Context, credentialsFile, tokenFile string, out io.Wr
 		return nil, err
 	}
 
+	state, err := randomState()
+	if err != nil {
+		return nil, err
+	}
+	// PKCE protects the authorization code against interception on its way back
+	// through the browser. The verifier never leaves this process.
+	verifier := oauth2.GenerateVerifier()
+
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, fmt.Errorf("start loopback listener: %w", err)
@@ -57,18 +77,33 @@ func Authorize(ctx context.Context, credentialsFile, tokenFile string, out io.Wr
 	errCh := make(chan error, 1)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+		// respond flushes the message so the browser receives it even though
+		// Authorize tears the server down as soon as the callback signals.
+		respond := func(msg string) {
+			fmt.Fprint(w, msg)
+			if f, ok := w.(http.Flusher); ok {
+				f.Flush()
+			}
+		}
+		// The state must match before anything else is trusted: a response with
+		// the wrong state did not originate from our authorization request.
+		if got := r.URL.Query().Get("state"); got != state {
+			respond("Authorization failed: state mismatch. You can close this tab.")
+			errCh <- errors.New("callback state mismatch")
+			return
+		}
 		if e := r.URL.Query().Get("error"); e != "" {
-			fmt.Fprintf(w, "Authorization failed: %s. You can close this tab.", e)
+			respond(fmt.Sprintf("Authorization failed: %s. You can close this tab.", e))
 			errCh <- fmt.Errorf("authorization denied: %s", e)
 			return
 		}
 		code := r.URL.Query().Get("code")
 		if code == "" {
-			fmt.Fprint(w, "Authorization failed: no code returned. You can close this tab.")
+			respond("Authorization failed: no code returned. You can close this tab.")
 			errCh <- errors.New("callback received no authorization code")
 			return
 		}
-		fmt.Fprint(w, "Authorization complete. You can close this tab.")
+		respond("Authorization complete. You can close this tab.")
 		codeCh <- code
 	})
 	srv := &http.Server{Handler: mux}
@@ -77,9 +112,10 @@ func Authorize(ctx context.Context, credentialsFile, tokenFile string, out io.Wr
 
 	// AccessTypeOffline requests a refresh token; prompt=consent forces Google
 	// to re-issue one, which is required on every re-authorization.
-	authURL := cfg.AuthCodeURL("state",
+	authURL := cfg.AuthCodeURL(state,
 		oauth2.AccessTypeOffline,
 		oauth2.SetAuthURLParam("prompt", "consent"),
+		oauth2.S256ChallengeOption(verifier),
 	)
 	fmt.Fprintf(out, "Open this URL to authorize:\n\n%s\n\nWaiting for the callback...\n", authURL)
 
@@ -92,7 +128,7 @@ func Authorize(ctx context.Context, credentialsFile, tokenFile string, out io.Wr
 		return nil, ctx.Err()
 	}
 
-	tok, err := cfg.Exchange(ctx, code)
+	tok, err := cfg.Exchange(ctx, code, oauth2.VerifierOption(verifier))
 	if err != nil {
 		return nil, fmt.Errorf("exchange authorization code: %w", err)
 	}

@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -175,13 +176,20 @@ func (b *syncBuffer) String() string {
 // writeCredentials writes a Desktop-client credentials file and returns its path.
 func writeCredentials(t *testing.T) string {
 	t.Helper()
+	return writeCredentialsWithTokenURI(t, "https://oauth2.googleapis.com/token")
+}
+
+// writeCredentialsWithTokenURI writes credentials whose token endpoint is
+// tokenURI, so a test can observe whether Authorize ever attempts an exchange.
+func writeCredentialsWithTokenURI(t *testing.T, tokenURI string) string {
+	t.Helper()
 	path := filepath.Join(t.TempDir(), "client_secret.json")
 	body, _ := json.Marshal(map[string]any{
 		"installed": map[string]any{
 			"client_id":     "id.apps.googleusercontent.com",
 			"client_secret": "secret",
 			"auth_uri":      "https://accounts.google.com/o/oauth2/auth",
-			"token_uri":     "https://oauth2.googleapis.com/token",
+			"token_uri":     tokenURI,
 			"redirect_uris": []string{"http://localhost"},
 		},
 	})
@@ -191,9 +199,9 @@ func writeCredentials(t *testing.T) string {
 	return path
 }
 
-// waitForCallbackURL blocks until Authorize prints its consent URL, then returns
-// the loopback redirect_uri embedded in it.
-func waitForCallbackURL(t *testing.T, out *syncBuffer) string {
+// waitForAuthURL blocks until Authorize prints its consent URL, then returns the
+// parsed URL so tests can read both the loopback redirect_uri and the state.
+func waitForAuthURL(t *testing.T, out *syncBuffer) *url.URL {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
@@ -206,14 +214,24 @@ func waitForCallbackURL(t *testing.T, out *syncBuffer) string {
 			if err != nil {
 				t.Fatalf("parse auth URL: %v", err)
 			}
-			if ru := u.Query().Get("redirect_uri"); ru != "" {
-				return ru
+			if u.Query().Get("redirect_uri") != "" && u.Query().Get("state") != "" {
+				return u
 			}
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
 	t.Fatalf("timed out waiting for the consent URL; output so far:\n%s", out.String())
-	return ""
+	return nil
+}
+
+// callbackWith builds a loopback callback URL carrying the given query values.
+func callbackWith(t *testing.T, authURL *url.URL, values url.Values) string {
+	t.Helper()
+	callback := authURL.Query().Get("redirect_uri")
+	if callback == "" {
+		t.Fatal("consent URL has no redirect_uri")
+	}
+	return callback + "?" + values.Encode()
 }
 
 func TestAuthorizeReportsDeniedConsent(t *testing.T) {
@@ -226,8 +244,12 @@ func TestAuthorizeReportsDeniedConsent(t *testing.T) {
 		errCh <- err
 	}()
 
-	callback := waitForCallbackURL(t, out)
-	resp, err := http.Get(callback + "?error=access_denied")
+	authURL := waitForAuthURL(t, out)
+	callback := callbackWith(t, authURL, url.Values{
+		"state": {authURL.Query().Get("state")},
+		"error": {"access_denied"},
+	})
+	resp, err := http.Get(callback)
 	if err != nil {
 		t.Fatalf("GET callback: %v", err)
 	}
@@ -251,7 +273,10 @@ func TestAuthorizeReportsMissingCode(t *testing.T) {
 		errCh <- err
 	}()
 
-	callback := waitForCallbackURL(t, out)
+	authURL := waitForAuthURL(t, out)
+	callback := callbackWith(t, authURL, url.Values{
+		"state": {authURL.Query().Get("state")},
+	})
 	resp, err := http.Get(callback)
 	if err != nil {
 		t.Fatalf("GET callback: %v", err)
@@ -261,6 +286,50 @@ func TestAuthorizeReportsMissingCode(t *testing.T) {
 
 	if err := <-errCh; err == nil || !strings.Contains(err.Error(), "no authorization code") {
 		t.Errorf("Authorize() error = %v, want a missing-code error", err)
+	}
+}
+
+// TestAuthorizeRejectsWrongState drives the callback with a valid-looking code
+// but the wrong state. The exchange must never run, so the token endpoint must
+// not be contacted and no token file may be written.
+func TestAuthorizeRejectsWrongState(t *testing.T) {
+	var exchanges atomic.Int32
+	tokenSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		exchanges.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"access_token":"attacker","token_type":"Bearer","expires_in":3600,"refresh_token":"attacker-refresh"}`)
+	}))
+	t.Cleanup(tokenSrv.Close)
+
+	creds := writeCredentialsWithTokenURI(t, tokenSrv.URL)
+	tokenPath := filepath.Join(t.TempDir(), "token.json")
+	out := &syncBuffer{}
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := Authorize(context.Background(), creds, tokenPath, out)
+		errCh <- err
+	}()
+
+	authURL := waitForAuthURL(t, out)
+	callback := callbackWith(t, authURL, url.Values{
+		"state": {"not-the-real-state"},
+		"code":  {"attacker-code"},
+	})
+	resp, err := http.Get(callback)
+	if err != nil {
+		t.Fatalf("GET callback: %v", err)
+	}
+	io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
+
+	if err := <-errCh; err == nil || !strings.Contains(err.Error(), "state") {
+		t.Errorf("Authorize() error = %v, want a state-mismatch error", err)
+	}
+	if got := exchanges.Load(); got != 0 {
+		t.Errorf("token endpoint contacted %d time(s), want 0 — the exchange must never run", got)
+	}
+	if _, statErr := os.Stat(tokenPath); statErr == nil {
+		t.Error("Authorize() wrote a token despite a state mismatch")
 	}
 }
 
@@ -275,7 +344,7 @@ func TestAuthorizeStopsWhenContextCancelled(t *testing.T) {
 		errCh <- err
 	}()
 
-	waitForCallbackURL(t, out)
+	waitForAuthURL(t, out)
 	cancel()
 
 	select {
