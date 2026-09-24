@@ -1,4 +1,4 @@
-package laya
+package systemone
 
 import (
 	"context"
@@ -45,7 +45,7 @@ func newTestClient(t *testing.T, handler http.Handler) *Client {
 	t.Helper()
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
-	cfg := config.Laya{
+	cfg := config.SystemOne{
 		Endpoint:  srv.URL,
 		APIKeyEnv: "",
 		Timeout:   config.Duration(5 * time.Second),
@@ -84,7 +84,7 @@ func TestPredict_Success_AllFiveAnswers(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	cfg := config.Laya{Endpoint: srv.URL, Timeout: config.Duration(5 * time.Second)}
+	cfg := config.SystemOne{Endpoint: srv.URL, Timeout: config.Duration(5 * time.Second)}
 	c := New(cfg)
 	ans, err := c.Predict(context.Background(), testState())
 	if err != nil {
@@ -143,7 +143,7 @@ func TestPredict_Success_AllFiveAnswers(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(okResponse())
 	}))
 	t.Cleanup(srv2.Close)
-	cfg2 := config.Laya{Endpoint: srv2.URL, Timeout: config.Duration(5 * time.Second)}
+	cfg2 := config.SystemOne{Endpoint: srv2.URL, Timeout: config.Duration(5 * time.Second)}
 	c2 := New(cfg2)
 	if _, err := c2.Predict(context.Background(), spanishState); err != nil {
 		t.Fatalf("Predict spanish error: %v", err)
@@ -154,7 +154,7 @@ func TestPredict_Success_AllFiveAnswers(t *testing.T) {
 }
 
 func TestPredict_APIKeyHeaderSent(t *testing.T) {
-	t.Setenv("LAYA_API_KEY", "secret-123")
+	t.Setenv("SYSTEMONE_API_KEY", "secret-123")
 	var gotAuth string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
@@ -163,7 +163,7 @@ func TestPredict_APIKeyHeaderSent(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	cfg := config.Laya{Endpoint: srv.URL, APIKeyEnv: "LAYA_API_KEY", Timeout: config.Duration(5 * time.Second)}
+	cfg := config.SystemOne{Endpoint: srv.URL, APIKeyEnv: "SYSTEMONE_API_KEY", Timeout: config.Duration(5 * time.Second)}
 	c := New(cfg)
 	_, err := c.Predict(context.Background(), testState())
 	if err != nil {
@@ -175,7 +175,7 @@ func TestPredict_APIKeyHeaderSent(t *testing.T) {
 }
 
 func TestPredict_MissingKey_NoHeader(t *testing.T) {
-	_ = os.Unsetenv("LAYA_API_KEY_MISSING_TEST")
+	_ = os.Unsetenv("SYSTEMONE_API_KEY_MISSING_TEST")
 	var gotAuth string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
@@ -184,7 +184,7 @@ func TestPredict_MissingKey_NoHeader(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	cfg := config.Laya{Endpoint: srv.URL, APIKeyEnv: "LAYA_API_KEY_MISSING_TEST", Timeout: config.Duration(5 * time.Second)}
+	cfg := config.SystemOne{Endpoint: srv.URL, APIKeyEnv: "SYSTEMONE_API_KEY_MISSING_TEST", Timeout: config.Duration(5 * time.Second)}
 	c := New(cfg)
 	_, err := c.Predict(context.Background(), testState())
 	if err != nil {
@@ -202,7 +202,7 @@ func TestPredict_422ReturnsErrUnprocessable(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	cfg := config.Laya{Endpoint: srv.URL, Timeout: config.Duration(5 * time.Second)}
+	cfg := config.SystemOne{Endpoint: srv.URL, Timeout: config.Duration(5 * time.Second)}
 	c := New(cfg)
 	_, err := c.Predict(context.Background(), testState())
 	if err == nil {
@@ -223,7 +223,7 @@ func TestPredict_500ReturnsError(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	cfg := config.Laya{Endpoint: srv.URL, Timeout: config.Duration(5 * time.Second)}
+	cfg := config.SystemOne{Endpoint: srv.URL, Timeout: config.Duration(5 * time.Second)}
 	c := New(cfg)
 	_, err := c.Predict(context.Background(), testState())
 	if err == nil {
@@ -245,7 +245,7 @@ func TestPredict_ContextTimeout(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	cfg := config.Laya{Endpoint: srv.URL, Timeout: config.Duration(5 * time.Second)}
+	cfg := config.SystemOne{Endpoint: srv.URL, Timeout: config.Duration(5 * time.Second)}
 	c := New(cfg)
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
@@ -270,7 +270,7 @@ func TestPredict_ContextCanceled(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	cfg := config.Laya{Endpoint: srv.URL, Timeout: config.Duration(5 * time.Second)}
+	cfg := config.SystemOne{Endpoint: srv.URL, Timeout: config.Duration(5 * time.Second)}
 	c := New(cfg)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -293,7 +293,7 @@ func TestPredict_MalformedJSON(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	cfg := config.Laya{Endpoint: srv.URL, Timeout: config.Duration(5 * time.Second)}
+	cfg := config.SystemOne{Endpoint: srv.URL, Timeout: config.Duration(5 * time.Second)}
 	c := New(cfg)
 	_, err := c.Predict(context.Background(), testState())
 	if err == nil {
@@ -320,7 +320,7 @@ func TestPredict_ConfidenceParsing(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	cfg := config.Laya{Endpoint: srv.URL, Timeout: config.Duration(5 * time.Second)}
+	cfg := config.SystemOne{Endpoint: srv.URL, Timeout: config.Duration(5 * time.Second)}
 	c := New(cfg)
 	ans, err := c.Predict(context.Background(), testState())
 	if err != nil {
@@ -365,7 +365,7 @@ func TestPredict_CustomQuestions(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	cfg := config.Laya{Endpoint: srv.URL, Timeout: config.Duration(5 * time.Second)}
+	cfg := config.SystemOne{Endpoint: srv.URL, Timeout: config.Duration(5 * time.Second)}
 	c := New(cfg)
 	ans, err := c.PredictWithQuestions(context.Background(), testState(), custom)
 	if err != nil {
@@ -380,7 +380,7 @@ func TestPredict_CustomQuestions(t *testing.T) {
 }
 
 func TestPredict_EmptyEndpoint(t *testing.T) {
-	cfg := config.Laya{Endpoint: "", Timeout: config.Duration(5 * time.Second)}
+	cfg := config.SystemOne{Endpoint: "", Timeout: config.Duration(5 * time.Second)}
 	c := New(cfg)
 	_, err := c.Predict(context.Background(), testState())
 	if err == nil {
@@ -395,7 +395,7 @@ func TestPredict_NonJSONErrorBody(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	cfg := config.Laya{Endpoint: srv.URL, Timeout: config.Duration(5 * time.Second)}
+	cfg := config.SystemOne{Endpoint: srv.URL, Timeout: config.Duration(5 * time.Second)}
 	c := New(cfg)
 	_, err := c.Predict(context.Background(), testState())
 	if err == nil {
@@ -421,7 +421,7 @@ func TestPredict_UnknownFieldsIgnored(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	cfg := config.Laya{Endpoint: srv.URL, Timeout: config.Duration(5 * time.Second)}
+	cfg := config.SystemOne{Endpoint: srv.URL, Timeout: config.Duration(5 * time.Second)}
 	c := New(cfg)
 	ans, err := c.Predict(context.Background(), testState())
 	if err != nil {
@@ -441,7 +441,7 @@ func TestPredict_HTTPTimeout(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	// Client timeout shorter than server sleep.
-	cfg := config.Laya{Endpoint: srv.URL, Timeout: config.Duration(50 * time.Millisecond)}
+	cfg := config.SystemOne{Endpoint: srv.URL, Timeout: config.Duration(50 * time.Millisecond)}
 	c := New(cfg)
 	_, err := c.Predict(context.Background(), testState())
 	if err == nil {
@@ -462,7 +462,7 @@ func TestPing_Success(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	cfg := config.Laya{Endpoint: srv.URL, Timeout: config.Duration(5 * time.Second)}
+	cfg := config.SystemOne{Endpoint: srv.URL, Timeout: config.Duration(5 * time.Second)}
 	c := New(cfg)
 	if err := c.Ping(context.Background()); err != nil {
 		t.Fatalf("Ping error: %v", err)
@@ -476,7 +476,7 @@ func TestPing_Failure(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	cfg := config.Laya{Endpoint: srv.URL, Timeout: config.Duration(5 * time.Second)}
+	cfg := config.SystemOne{Endpoint: srv.URL, Timeout: config.Duration(5 * time.Second)}
 	c := New(cfg)
 	if err := c.Ping(context.Background()); err == nil {
 		t.Fatal("expected Ping error for 503, got nil")
@@ -484,7 +484,7 @@ func TestPing_Failure(t *testing.T) {
 }
 
 func TestPing_WithAPIKey(t *testing.T) {
-	t.Setenv("LAYA_API_KEY_PING", "ping-key")
+	t.Setenv("SYSTEMONE_API_KEY_PING", "ping-key")
 	var gotAuth string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
@@ -492,7 +492,7 @@ func TestPing_WithAPIKey(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	cfg := config.Laya{Endpoint: srv.URL, APIKeyEnv: "LAYA_API_KEY_PING", Timeout: config.Duration(5 * time.Second)}
+	cfg := config.SystemOne{Endpoint: srv.URL, APIKeyEnv: "SYSTEMONE_API_KEY_PING", Timeout: config.Duration(5 * time.Second)}
 	c := New(cfg)
 	if err := c.Ping(context.Background()); err != nil {
 		t.Fatalf("Ping error: %v", err)

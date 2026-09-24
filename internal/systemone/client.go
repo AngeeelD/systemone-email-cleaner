@@ -1,6 +1,6 @@
-// Package laya implements an HTTP client for laya-serve at POST /v1/systemone.
+// Package systemone implements an HTTP client for System One server at POST /v1/systemone.
 // It is intentionally dependency-free beyond the standard library.
-package laya
+package systemone
 
 import (
 	"bytes"
@@ -19,7 +19,7 @@ import (
 	"github.com/AngeeelD/systemone-email-cleaner/internal/extract"
 )
 
-// Answer is a single Laya choice answer with confidence and optional token probabilities.
+// Answer is a single choice answer with confidence and optional token probabilities.
 type Answer struct {
 	Choice        string             `json:"choice"`
 	Confidence    float64            `json:"confidence"`
@@ -29,7 +29,7 @@ type Answer struct {
 // Answers maps question name to its answer.
 type Answers map[string]Answer
 
-// Question defines a Laya choice question.
+// Question defines a choice question.
 type Question struct {
 	Type         string            `json:"type"`
 	Instructions string            `json:"instructions"`
@@ -129,21 +129,21 @@ func detectLangHintFromState(state extract.State) string {
 	return detectLangHint(para)
 }
 
-// ErrUnprocessable signals HTTP 422 from laya-serve. A single bad message
+// ErrUnprocessable signals HTTP 422 from System One server. A single bad message
 // must not stop a run — callers should treat this as skip+log.
-var ErrUnprocessable = errors.New("laya: unprocessable entity")
+var ErrUnprocessable = errors.New("systemone: unprocessable entity")
 
-// Client talks to laya-serve.
+// Client talks to System One server.
 type Client struct {
 	endpoint   string
 	apiKey     string
 	httpClient *http.Client
 }
 
-// New creates a Client from config.Laya. It reads the API key from the
+// New creates a Client from config.SystemOne. It reads the API key from the
 // environment variable named in cfg.APIKeyEnv when set; a missing variable
 // means no Authorization header is sent. Timeout defaults to 30s when unset.
-func New(cfg config.Laya) *Client {
+func New(cfg config.SystemOne) *Client {
 	apiKey := ""
 	if cfg.APIKeyEnv != "" {
 		apiKey = os.Getenv(cfg.APIKeyEnv)
@@ -182,7 +182,7 @@ func (c *Client) PredictParagraph(ctx context.Context, paragraph string) (Answer
 // PredictParagraphWithQuestions sends paragraph with an explicit questions map.
 func (c *Client) PredictParagraphWithQuestions(ctx context.Context, paragraph string, qs Questions) (Answers, error) {
 	if c.endpoint == "" {
-		return nil, errors.New("laya: endpoint is empty")
+		return nil, errors.New("systemone: endpoint is empty")
 	}
 	if qs == nil {
 		qs = DefaultQuestions
@@ -201,13 +201,13 @@ func (c *Client) PredictParagraphWithQuestions(ctx context.Context, paragraph st
 
 	body, err := json.Marshal(reqBody)
 	if err != nil {
-		return nil, fmt.Errorf("laya: marshal request: %w", err)
+		return nil, fmt.Errorf("systemone: marshal request: %w", err)
 	}
 
 	url := c.endpoint + "/v1/systemone"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
-		return nil, fmt.Errorf("laya: create request: %w", err)
+		return nil, fmt.Errorf("systemone: create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if c.apiKey != "" {
@@ -224,13 +224,13 @@ func (c *Client) PredictParagraphWithQuestions(ctx context.Context, paragraph st
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		return nil, fmt.Errorf("laya: do request: %w", err)
+		return nil, fmt.Errorf("systemone: do request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20)) // 1 MiB cap
 	if err != nil {
-		return nil, fmt.Errorf("laya: read response: %w", err)
+		return nil, fmt.Errorf("systemone: read response: %w", err)
 	}
 
 	switch resp.StatusCode {
@@ -240,7 +240,7 @@ func (c *Client) PredictParagraphWithQuestions(ctx context.Context, paragraph st
 		// continue to decode
 	default:
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			return nil, fmt.Errorf("laya: unexpected status %d: %s", resp.StatusCode, truncate(respBody, 500))
+			return nil, fmt.Errorf("systemone: unexpected status %d: %s", resp.StatusCode, truncate(respBody, 500))
 		}
 	}
 
@@ -259,20 +259,20 @@ func (c *Client) PredictParagraphWithQuestions(ctx context.Context, paragraph st
 	type rawResp map[string]json.RawMessage
 	var raw rawResp
 	if err := json.Unmarshal(respBody, &raw); err != nil {
-		return nil, fmt.Errorf("laya: decode response: %w", err)
+		return nil, fmt.Errorf("systemone: decode response: %w", err)
 	}
 	// Decode answers specifically; if missing, the error below surfaces.
 	if v, ok := raw["answers"]; ok {
 		if err := json.Unmarshal(v, &payload.Answers); err != nil {
-			return nil, fmt.Errorf("laya: decode answers: %w", err)
+			return nil, fmt.Errorf("systemone: decode answers: %w", err)
 		}
 	} else {
 		// No answers field at all — try full decode for better error message.
 		if err := json.Unmarshal(respBody, &payload); err != nil {
-			return nil, fmt.Errorf("laya: decode response: %w", err)
+			return nil, fmt.Errorf("systemone: decode response: %w", err)
 		}
 		if payload.Answers == nil {
-			return nil, fmt.Errorf("laya: response missing answers field: %s", truncate(respBody, 500))
+			return nil, fmt.Errorf("systemone: response missing answers field: %s", truncate(respBody, 500))
 		}
 	}
 	// Attempt to capture routing/model for completeness; ignore errors.
@@ -290,7 +290,7 @@ func (c *Client) PredictParagraphWithQuestions(ctx context.Context, paragraph st
 	}
 
 	if payload.Answers == nil {
-		return nil, fmt.Errorf("laya: response missing answers field: %s", truncate(respBody, 500))
+		return nil, fmt.Errorf("systemone: response missing answers field: %s", truncate(respBody, 500))
 	}
 
 	return payload.Answers, nil
@@ -300,16 +300,16 @@ type routingInfo struct {
 	Model string `json:"model"`
 }
 
-// Ping checks laya-serve liveness via GET /health. It returns nil on 2xx,
+// Ping checks System One server liveness via GET /health. It returns nil on 2xx,
 // otherwise an error describing the failure. Context cancellation is preserved.
 func (c *Client) Ping(ctx context.Context) error {
 	if c.endpoint == "" {
-		return errors.New("laya: endpoint is empty")
+		return errors.New("systemone: endpoint is empty")
 	}
 	url := c.endpoint + "/health"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return fmt.Errorf("laya: create ping request: %w", err)
+		return fmt.Errorf("systemone: create ping request: %w", err)
 	}
 	if c.apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+c.apiKey)
@@ -323,13 +323,13 @@ func (c *Client) Ping(ctx context.Context) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		return fmt.Errorf("laya: ping: %w", err)
+		return fmt.Errorf("systemone: ping: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("laya: ping unexpected status %d: %s", resp.StatusCode, truncate(body, 200))
+		return fmt.Errorf("systemone: ping unexpected status %d: %s", resp.StatusCode, truncate(body, 200))
 	}
 	return nil
 }

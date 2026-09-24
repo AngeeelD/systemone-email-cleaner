@@ -1,4 +1,4 @@
-// Package policy is a pure deterministic classifier that maps Laya answers
+// Package policy is a pure deterministic classifier that maps System One answers
 // to a Gmail action for dry-run. It performs no I/O and no network calls.
 package policy
 
@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/AngeeelD/systemone-email-cleaner/internal/config"
-	"github.com/AngeeelD/systemone-email-cleaner/internal/laya"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/systemone"
 )
 
 // Kind is the decision outcome.
@@ -33,7 +33,7 @@ type Action struct {
 	ShouldTrash bool     `json:"should_trash"`
 }
 
-// topicDef binds a Laya question name to a label config key and its default.
+// topicDef binds a question name to a label config key and its default.
 type topicDef struct {
 	Question     string
 	LabelKey     string
@@ -71,7 +71,7 @@ var topicOrder = []topicDef{
 // It is pure: no I/O, no mutation of inputs, deterministic output. Missing
 // answers are treated as "no". Choice comparison is case-insensitive and
 // whitespace-trimmed. Threshold comparison is inclusive (>=).
-func Decide(answers laya.Answers, cfg config.Policy, labels map[string]string) Action {
+func Decide(answers systemone.Answers, cfg config.Policy, labels map[string]string) Action {
 	// Step 1: junk gate with margin — trash only if junk clearly beats best topic.
 	if ans, ok := answers["is_junk"]; ok && isYes(ans, cfg.MinConfidenceJunk) {
 		maxTopicConf, hasTopic := maxTopicConfidenceFiltered(answers, cfg.MinConfidenceTopic)
@@ -147,9 +147,9 @@ func Decide(answers laya.Answers, cfg config.Policy, labels map[string]string) A
 // isYes reports whether ans is an affirmative (choice A) with confidence at
 // or above threshold. When Probabilities are present, it gates on
 // probabilities[A] (or probabilities[Choice] fallback) instead of Confidence,
-// because laya confidence is ~0.10 while token probabilities carry the real
+// because model confidence is ~0.10 while token probabilities carry the real
 // signal (~0.68 for true banking). Choice is trimmed and case-insensitive.
-func isYes(ans laya.Answer, threshold float64) bool {
+func isYes(ans systemone.Answer, threshold float64) bool {
 	choice := strings.TrimSpace(ans.Choice)
 	if !strings.EqualFold(choice, "A") {
 		return false
@@ -172,7 +172,7 @@ func isYes(ans laya.Answer, threshold float64) bool {
 // effectiveScore returns the probability for choice A when Probabilities are
 // present, otherwise Confidence. This is the signal used for threshold and
 // margin gating.
-func effectiveScore(ans laya.Answer) float64 {
+func effectiveScore(ans systemone.Answer) float64 {
 	if ans.Probabilities != nil {
 		if p, ok := ans.Probabilities["A"]; ok {
 			return p
@@ -190,7 +190,7 @@ func effectiveScore(ans laya.Answer) float64 {
 // maxTopicConfidence returns the topic question with the highest effective
 // score among present answers, regardless of choice value. Used only for the
 // unclassified reason string.
-func maxTopicConfidence(answers laya.Answers) (string, float64, bool) {
+func maxTopicConfidence(answers systemone.Answers) (string, float64, bool) {
 	var best string
 	var bestConf float64
 	found := false
@@ -210,7 +210,7 @@ func maxTopicConfidence(answers laya.Answers) (string, float64, bool) {
 // maxTopicConfidenceFiltered returns the highest effective score among topics that
 // are affirmative (choice A, case-insensitive, trimmed) and meet the threshold.
 // It is used for the junk margin gate.
-func maxTopicConfidenceFiltered(answers laya.Answers, threshold float64) (float64, bool) {
+func maxTopicConfidenceFiltered(answers systemone.Answers, threshold float64) (float64, bool) {
 	var best float64
 	found := false
 	for _, td := range topicOrder {

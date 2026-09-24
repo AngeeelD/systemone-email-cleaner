@@ -16,7 +16,7 @@ import (
 	"github.com/AngeeelD/systemone-email-cleaner/internal/config"
 	"github.com/AngeeelD/systemone-email-cleaner/internal/extract"
 	"github.com/AngeeelD/systemone-email-cleaner/internal/gmail"
-	"github.com/AngeeelD/systemone-email-cleaner/internal/laya"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/systemone"
 )
 
 // fakeRunGmail is a test double for extendedGmailAccess.
@@ -59,14 +59,14 @@ func (f *fakeRunGmail) BatchModify(_ context.Context, ids []string, add, remove 
 }
 func (f *fakeRunGmail) Untrash(_ context.Context, id string) error { return nil }
 
-// fakeLaya implements layaPredictor.
-type fakeLaya struct {
-	predict          func(context.Context, extract.State) (laya.Answers, error)
-	predictParagraph func(context.Context, string) (laya.Answers, error)
+// fakeSystemOne implements systemOnePredictor.
+type fakeSystemOne struct {
+	predict          func(context.Context, extract.State) (systemone.Answers, error)
+	predictParagraph func(context.Context, string) (systemone.Answers, error)
 	ping             func(context.Context) error
 }
 
-func (f *fakeLaya) Predict(ctx context.Context, s extract.State) (laya.Answers, error) {
+func (f *fakeSystemOne) Predict(ctx context.Context, s extract.State) (systemone.Answers, error) {
 	if f.predict != nil {
 		return f.predict(ctx, s)
 	}
@@ -74,18 +74,18 @@ func (f *fakeLaya) Predict(ctx context.Context, s extract.State) (laya.Answers, 
 		para := s.BodyPreview
 		return f.predictParagraph(ctx, para)
 	}
-	return laya.Answers{}, nil
+	return systemone.Answers{}, nil
 }
-func (f *fakeLaya) PredictParagraph(ctx context.Context, para string) (laya.Answers, error) {
+func (f *fakeSystemOne) PredictParagraph(ctx context.Context, para string) (systemone.Answers, error) {
 	if f.predictParagraph != nil {
 		return f.predictParagraph(ctx, para)
 	}
 	if f.predict != nil {
 		return f.predict(ctx, extract.State{BodyPreview: para, Subject: para})
 	}
-	return laya.Answers{}, nil
+	return systemone.Answers{}, nil
 }
-func (f *fakeLaya) Ping(ctx context.Context) error {
+func (f *fakeSystemOne) Ping(ctx context.Context) error {
 	if f.ping != nil {
 		return f.ping(ctx)
 	}
@@ -103,7 +103,7 @@ func writeRunConfig(t *testing.T, auditDir string) string {
 	return path
 }
 
-func newRunApp(t *testing.T, gmailClient *fakeRunGmail, layaClient *fakeLaya, fakeApplier *act.Fake, auditDir string, stdin string) (*app, *bytes.Buffer, *bytes.Buffer) {
+func newRunApp(t *testing.T, gmailClient *fakeRunGmail, systemOneClient *fakeSystemOne, fakeApplier *act.Fake, auditDir string, stdin string) (*app, *bytes.Buffer, *bytes.Buffer) {
 	t.Helper()
 	var out, errOut bytes.Buffer
 	cfgPath := writeRunConfig(t, auditDir)
@@ -118,8 +118,8 @@ func newRunApp(t *testing.T, gmailClient *fakeRunGmail, layaClient *fakeLaya, fa
 		openGmail: func(context.Context, *config.Config) (gmailAccess, error) {
 			return gmailClient, nil
 		},
-		openLaya: func(context.Context, *config.Config) (layaPredictor, error) {
-			return layaClient, nil
+		openSystemOne: func(context.Context, *config.Config) (systemOnePredictor, error) {
+			return systemOneClient, nil
 		},
 		newApplier: func(extendedGmailAccess) applier {
 			if fakeApplier != nil {
@@ -131,8 +131,8 @@ func newRunApp(t *testing.T, gmailClient *fakeRunGmail, layaClient *fakeLaya, fa
 	return a, &out, &errOut
 }
 
-func sampleAnswersForLabel() laya.Answers {
-	return laya.Answers{
+func sampleAnswersForLabel() systemone.Answers {
+	return systemone.Answers{
 		"is_junk":     {Choice: "B", Confidence: 0.97},
 		"is_person":   {Choice: "A", Confidence: 0.90},
 		"is_security": {Choice: "B", Confidence: 0.99},
@@ -140,8 +140,8 @@ func sampleAnswersForLabel() laya.Answers {
 		"is_banking":  {Choice: "B", Confidence: 0.99},
 	}
 }
-func sampleAnswersForTrash() laya.Answers {
-	return laya.Answers{
+func sampleAnswersForTrash() systemone.Answers {
+	return systemone.Answers{
 		"is_junk":     {Choice: "A", Confidence: 0.95},
 		"is_person":   {Choice: "B", Confidence: 0.99},
 		"is_security": {Choice: "B", Confidence: 0.99},
@@ -159,8 +159,8 @@ func TestRun_DryRunWritesNothing(t *testing.T) {
 			"b": {ID: "b", Subject: "World", LabelIDs: []string{"INBOX"}, BodyText: "world"},
 		},
 	}
-	fl := &fakeLaya{
-		predict: func(_ context.Context, _ extract.State) (laya.Answers, error) {
+	fl := &fakeSystemOne{
+		predict: func(_ context.Context, _ extract.State) (systemone.Answers, error) {
 			return sampleAnswersForLabel(), nil
 		},
 	}
@@ -191,8 +191,8 @@ func TestRun_AppliesLabelsAndWritesAudit(t *testing.T) {
 			"a": {ID: "a", Subject: "Hello", LabelIDs: []string{"INBOX"}, BodyText: "hello"},
 		},
 	}
-	fl := &fakeLaya{
-		predict: func(_ context.Context, _ extract.State) (laya.Answers, error) {
+	fl := &fakeSystemOne{
+		predict: func(_ context.Context, _ extract.State) (systemone.Answers, error) {
 			return sampleAnswersForLabel(), nil
 		},
 	}
@@ -237,11 +237,11 @@ func TestRun_Skips422AndContinues(t *testing.T) {
 		},
 	}
 	call := 0
-	fl := &fakeLaya{
-		predict: func(_ context.Context, _ extract.State) (laya.Answers, error) {
+	fl := &fakeSystemOne{
+		predict: func(_ context.Context, _ extract.State) (systemone.Answers, error) {
 			call++
 			if call == 1 {
-				return nil, fmt.Errorf("%w: state too large", laya.ErrUnprocessable)
+				return nil, fmt.Errorf("%w: state too large", systemone.ErrUnprocessable)
 			}
 			return sampleAnswersForLabel(), nil
 		},
@@ -284,8 +284,8 @@ func TestRun_CircuitBreakerAfter5(t *testing.T) {
 		msgs[id] = &gmail.Message{ID: id, Subject: "S" + id, LabelIDs: []string{"INBOX"}, BodyText: "body"}
 	}
 	fg := &fakeRunGmail{ids: ids, messages: msgs}
-	fl := &fakeLaya{
-		predict: func(_ context.Context, _ extract.State) (laya.Answers, error) {
+	fl := &fakeSystemOne{
+		predict: func(_ context.Context, _ extract.State) (systemone.Answers, error) {
 			return nil, errors.New("connection refused")
 		},
 		ping: func(_ context.Context) error { return nil },
@@ -296,7 +296,7 @@ func TestRun_CircuitBreakerAfter5(t *testing.T) {
 	if code := a.run([]string{"run", "--workers", "1"}); code != exitOK {
 		t.Fatalf("run exit = %d", code)
 	}
-	if !strings.Contains(errOut.String(), "laya-serve not reachable") {
+	if !strings.Contains(errOut.String(), "System One server not reachable") {
 		t.Errorf("stderr = %q, want circuit breaker pause message", errOut.String())
 	}
 	// After 5 failures, breaker should have paused at least once. Verify audit has 6 skipped records.
@@ -319,8 +319,8 @@ func TestRun_429BackoffRetries(t *testing.T) {
 		},
 	}
 	calls := 0
-	fl := &fakeLaya{
-		predict: func(_ context.Context, _ extract.State) (laya.Answers, error) {
+	fl := &fakeSystemOne{
+		predict: func(_ context.Context, _ extract.State) (systemone.Answers, error) {
 			calls++
 			if calls == 1 {
 				return nil, errors.New("429 Too Many Requests")
@@ -351,7 +351,7 @@ func TestRun_429BackoffRetries(t *testing.T) {
 func TestRun_TokenExpiredExitCode(t *testing.T) {
 	auditDir := t.TempDir()
 	fg := &fakeRunGmail{}
-	fl := &fakeLaya{}
+	fl := &fakeSystemOne{}
 	a, _, errOut := newRunApp(t, fg, fl, &act.Fake{}, auditDir, "")
 	a.checkToken = func(context.Context, *config.Config) error { return gmail.ErrTokenExpired }
 	if code := a.run([]string{"run"}); code != exitReAuth {
@@ -380,7 +380,7 @@ func TestRun_ReprocessAndLimitFlags(t *testing.T) {
 	}
 	// Wrap List to capture query
 	fakeListGmail := &queryCapturingGmail{fakeRunGmail: fg2, ids: []string{"a", "b", "c"}, messages: fg.messages, captured: &capturedQuery}
-	fl := &fakeLaya{predict: func(_ context.Context, _ extract.State) (laya.Answers, error) {
+	fl := &fakeSystemOne{predict: func(_ context.Context, _ extract.State) (systemone.Answers, error) {
 		return sampleAnswersForTrash(), nil
 	}}
 	// Build app manually to allow custom gmail type
@@ -395,7 +395,7 @@ func TestRun_ReprocessAndLimitFlags(t *testing.T) {
 		sleep:      func(time.Duration) {},
 		checkToken: func(context.Context, *config.Config) error { return nil },
 		openGmail:  func(context.Context, *config.Config) (gmailAccess, error) { return fakeListGmail, nil },
-		openLaya:   func(context.Context, *config.Config) (layaPredictor, error) { return fl, nil },
+		openSystemOne:   func(context.Context, *config.Config) (systemOnePredictor, error) { return fl, nil },
 		newApplier: func(extendedGmailAccess) applier { return &act.Fake{} },
 	}
 	_ = out // keep

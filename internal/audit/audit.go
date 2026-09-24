@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-// Answer mirrors laya.Answer for audit persistence.
+// Answer mirrors systemone.Answer for audit persistence.
 type Answer struct {
 	Choice     string  `json:"choice"`
 	Confidence float64 `json:"confidence"`

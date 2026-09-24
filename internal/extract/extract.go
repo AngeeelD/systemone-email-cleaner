@@ -1,5 +1,5 @@
 // Package extract converts a Gmail Message into a compact State suitable for
-// the Laya decision model. It is pure (no I/O, no network) and enforces the
+// the System One decision model. It is pure (no I/O, no network) and enforces the
 // token budget by truncating the body preview to a configurable rune count.
 package extract
 
@@ -14,7 +14,7 @@ import (
 	"github.com/AngeeelD/systemone-email-cleaner/internal/gmail"
 )
 
-// State is the JSON payload sent to Laya. It mirrors the schema from the
+// State is the JSON payload sent to the System One model. It mirrors the schema from the
 // design spec.
 type State struct {
 	From           string   `json:"from"`
@@ -36,7 +36,7 @@ var (
 	reElEscribio = regexp.MustCompile(`(?i)^El\s.+escribi[óo]:\s*$`)
 )
 
-// StateFrom returns the Laya State for msg using the default budget (800 runes).
+// StateFrom returns the System One State for msg using the default budget (800 runes).
 // It is provided for spec compatibility with the documented `extract.State(msg)`
 // concept. Prefer ToState when a config value is available.
 func StateFrom(msg gmail.Message) State {
@@ -91,7 +91,7 @@ func ToState(msg gmail.Message, cfg config.Extract) State {
 	}
 }
 
-// ToParagraph returns a natural-language paragraph for Laya. It uses the same
+// ToParagraph returns a natural-language paragraph for the System One model. It uses the same
 // body pipeline as ToState (HTML stripping, quoted-reply trimming, signature
 // trimming, whitespace collapse) but formats as a paragraph:
 //
@@ -174,7 +174,7 @@ func cleanedBodyRaw(msg gmail.Message) string {
 }
 
 // isMultilingualHeuristic reports whether the message appears to be
-// multilingual/Spanish, mirroring laya.detectLangHint. It checks domain
+// multilingual/Spanish, mirroring systemone.detectLangHint. It checks domain
 // suffix, Spanish diacritics, and common Spanish words.
 func isMultilingualHeuristic(msg gmail.Message, cleanedBody string, domain string) bool {
 	text := strings.ToLower(cleanedBody + " " + msg.Subject + " " + msg.From + " " + domain)

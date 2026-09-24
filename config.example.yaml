@@ -2,9 +2,9 @@
 gmail:
   credentials_file: client_secret.json
   token_file: token.json
-laya:
+systemone:
   endpoint: http://127.0.0.1:8000
-  api_key_env: LAYA_API_KEY
+  api_key_env: SYSTEMONE_API_KEY
   timeout: 30s
   workers: 8
 policy:

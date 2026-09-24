@@ -16,17 +16,17 @@ import (
 	"github.com/AngeeelD/systemone-email-cleaner/internal/config"
 	"github.com/AngeeelD/systemone-email-cleaner/internal/extract"
 	"github.com/AngeeelD/systemone-email-cleaner/internal/gmail"
-	"github.com/AngeeelD/systemone-email-cleaner/internal/laya"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/systemone"
 	"github.com/AngeeelD/systemone-email-cleaner/internal/policy"
 
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/time/rate"
 )
 
-// layaPredictor abstracts Laya for run.
-type layaPredictor interface {
-	Predict(ctx context.Context, state extract.State) (laya.Answers, error)
-	PredictParagraph(ctx context.Context, paragraph string) (laya.Answers, error)
+// systemOnePredictor abstracts the System One model for run.
+type systemOnePredictor interface {
+	Predict(ctx context.Context, state extract.State) (systemone.Answers, error)
+	PredictParagraph(ctx context.Context, paragraph string) (systemone.Answers, error)
 	Ping(ctx context.Context) error
 }
 
@@ -80,7 +80,7 @@ func (cb *circuitBreaker) pause(ctx context.Context) error {
 	if endpoint == "" {
 		endpoint = "http://127.0.0.1:8000"
 	}
-	safeFprintf(cb.stderrMu, cb.stderr, "⚠  laya-serve not reachable at %s\n", endpoint)
+	safeFprintf(cb.stderrMu, cb.stderr, "⚠  System One server not reachable at %s\n", endpoint)
 	safeFprintf(cb.stderrMu, cb.stderr, "   Check the service.  [ENTER] retry  ·  [Ctrl-C] exit\n")
 	// Wait for a line on stdin. If context is cancelled, return.
 	ch := make(chan string, 1)
@@ -120,7 +120,7 @@ func (cb *circuitBreaker) pause(ctx context.Context) error {
 				// Implement loop:
 				for {
 					// already printed once, now wait again after failed ping
-					safeFprintf(cb.stderrMu, cb.stderr, "⚠  laya-serve not reachable at %s\n", endpoint)
+					safeFprintf(cb.stderrMu, cb.stderr, "⚠  System One server not reachable at %s\n", endpoint)
 					safeFprintf(cb.stderrMu, cb.stderr, "   Check the service.  [ENTER] retry  ·  [Ctrl-C] exit\n")
 					br := bufio.NewReader(cb.stdin)
 					line2, err2 := br.ReadString('\n')
@@ -159,7 +159,7 @@ func isRateLimited(err error) bool {
 	return strings.Contains(s, "429") || strings.Contains(strings.ToLower(s), "rate limit") || strings.Contains(strings.ToLower(s), "quota")
 }
 func isUnprocessable(err error) bool {
-	return errors.Is(err, laya.ErrUnprocessable)
+	return errors.Is(err, systemone.ErrUnprocessable)
 }
 
 func backoffSleep(attempt int, sleep func(time.Duration)) {
@@ -240,9 +240,9 @@ func (a *app) runCmd(args []string) int {
 		extGmail = &gmailAdapter{inner: gmailClient}
 	}
 
-	layaClient, err := a.openLaya(ctx, cfg)
+	systemOneClient, err := a.openSystemOne(ctx, cfg)
 	if err != nil {
-		fmt.Fprintf(a.stderr, "cannot open Laya: %v\n", err)
+		fmt.Fprintf(a.stderr, "cannot open System One: %v\n", err)
 		return exitGeneric
 	}
 
@@ -308,9 +308,9 @@ func (a *app) runCmd(args []string) int {
 	var stderrMu sync.Mutex
 	cb := &circuitBreaker{
 		threshold: 5,
-		endpoint:  cfg.Laya.Endpoint,
+		endpoint:  cfg.SystemOne.Endpoint,
 		ping: func(ctx context.Context) error {
-			return layaClient.Ping(ctx)
+			return systemOneClient.Ping(ctx)
 		},
 		stdin:    stdin,
 		stderr:   a.stderr,
@@ -355,7 +355,7 @@ func (a *app) runCmd(args []string) int {
 						return err
 					}
 				}
-				rec, shouldCountAsFailure, err := processOne(gctx, extGmail, layaClient, applierInst, cfg, id, runID, *dryRun, sleepFn)
+				rec, shouldCountAsFailure, err := processOne(gctx, extGmail, systemOneClient, applierInst, cfg, id, runID, *dryRun, sleepFn)
 				// Handle circuit breaker for service-down failures.
 				if shouldCountAsFailure {
 					if pauseErr := cb.failure(gctx); pauseErr != nil {
@@ -444,7 +444,7 @@ func formatDryRun(rec audit.Record) string {
 	return fmt.Sprintf("%s %s %q (%s)", rec.Outcome, rec.MessageID, rec.Subject, rec.Reason)
 }
 
-func processOne(ctx context.Context, gmailClient extendedGmailAccess, layaClient layaPredictor, ap applier, cfg *config.Config, id, runID string, dryRun bool, sleep func(time.Duration)) (audit.Record, bool, error) {
+func processOne(ctx context.Context, gmailClient extendedGmailAccess, systemOneClient systemOnePredictor, ap applier, cfg *config.Config, id, runID string, dryRun bool, sleep func(time.Duration)) (audit.Record, bool, error) {
 	rec := audit.Record{
 		RunID:     runID,
 		MessageID: id,
@@ -469,7 +469,7 @@ func processOne(ctx context.Context, gmailClient extendedGmailAccess, layaClient
 		rec.Subject = ""
 		rec.Reason = fmt.Sprintf("get message: %v", err)
 		rec.Outcome = "skipped"
-		// Get failures are per-message, not service-down unless it's laya. So not counting toward breaker.
+		// Get failures are per-message, not service-down unless it's systemone. So not counting toward breaker.
 		return rec, false, err
 	}
 	rec.Subject = msg.Subject
@@ -478,14 +478,14 @@ func processOne(ctx context.Context, gmailClient extendedGmailAccess, layaClient
 	paragraph := extract.ToParagraph(*msg, cfg.Extract)
 
 	// Predict with 429 backoff and 422 handling
-	var answers laya.Answers
+	var answers systemone.Answers
 	for attempt := 0; attempt < 4; attempt++ {
-		answers, err = layaClient.PredictParagraph(ctx, paragraph)
+		answers, err = systemOneClient.PredictParagraph(ctx, paragraph)
 		if err == nil {
 			break
 		}
 		if isUnprocessable(err) {
-			rec.Reason = fmt.Sprintf("laya unprocessable: %v", err)
+			rec.Reason = fmt.Sprintf("systemone unprocessable: %v", err)
 			rec.Outcome = "skipped"
 			rec.Answers = nil
 			rec.LabelsAfter = append([]string(nil), msg.LabelIDs...)
@@ -498,7 +498,7 @@ func processOne(ctx context.Context, gmailClient extendedGmailAccess, layaClient
 		// Check for malformed JSON / unexpected shape: treat as skipped, not breaker.
 		s := strings.ToLower(err.Error())
 		if strings.Contains(s, "decode") || strings.Contains(s, "unexpected shape") || strings.Contains(s, "malformed") {
-			rec.Reason = fmt.Sprintf("laya decode error: %v", err)
+			rec.Reason = fmt.Sprintf("systemone decode error: %v", err)
 			rec.Outcome = "skipped"
 			rec.LabelsAfter = append([]string(nil), msg.LabelIDs...)
 			return rec, false, err
@@ -507,7 +507,7 @@ func processOne(ctx context.Context, gmailClient extendedGmailAccess, layaClient
 	}
 	if err != nil {
 		// Service-down candidate.
-		rec.Reason = fmt.Sprintf("laya predict: %v", err)
+		rec.Reason = fmt.Sprintf("systemone predict: %v", err)
 		rec.Outcome = "skipped"
 		rec.LabelsAfter = append([]string(nil), msg.LabelIDs...)
 		// Count toward breaker unless it's 429 that we already retried? 429 is rate limit, not breaker.

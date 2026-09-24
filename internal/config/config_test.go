@@ -30,8 +30,8 @@ func TestLoadAppliesDefaultsForAbsentKeys(t *testing.T) {
 	if got.Gmail.CredentialsFile != "client_secret.json" {
 		t.Errorf("Gmail.CredentialsFile = %q, want default %q", got.Gmail.CredentialsFile, "client_secret.json")
 	}
-	if got.Laya.Timeout.Std() != 30*time.Second {
-		t.Errorf("Laya.Timeout = %v, want 30s", got.Laya.Timeout.Std())
+	if got.SystemOne.Timeout.Std() != 30*time.Second {
+		t.Errorf("SystemOne.Timeout = %v, want 30s", got.SystemOne.Timeout.Std())
 	}
 	if got.Policy.MinConfidenceJunk != 0.60 {
 		t.Errorf("MinConfidenceJunk = %v, want 0.95", got.Policy.MinConfidenceJunk)
@@ -86,7 +86,7 @@ func TestLoadOverridesOnlyPresentKeys(t *testing.T) {
 }
 
 func TestDurationRejectsInvalidString(t *testing.T) {
-	if _, err := Load(write(t, "laya:\n  timeout: soon\n")); err == nil {
+	if _, err := Load(write(t, "systemone:\n  timeout: soon\n")); err == nil {
 		t.Fatal("Load() error = nil, want a duration parse error")
 	}
 }

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/AngeeelD/systemone-email-cleaner/internal/config"
-	"github.com/AngeeelD/systemone-email-cleaner/internal/laya"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/systemone"
 )
 
 func defaultPolicy() config.Policy {
@@ -25,8 +25,8 @@ func defaultLabels() map[string]string {
 	}
 }
 
-func ans(choice string, conf float64) laya.Answer {
-	return laya.Answer{Choice: choice, Confidence: conf}
+func ans(choice string, conf float64) systemone.Answer {
+	return systemone.Answer{Choice: choice, Confidence: conf}
 }
 
 func equalLabels(a, b []string) bool {
@@ -44,7 +44,7 @@ func equalLabels(a, b []string) bool {
 func TestDecide(t *testing.T) {
 	tests := []struct {
 		name       string
-		answers    laya.Answers
+		answers    systemone.Answers
 		policy     config.Policy
 		labels     map[string]string
 		wantKind   Kind
@@ -54,7 +54,7 @@ func TestDecide(t *testing.T) {
 	}{
 		{
 			name: "junk above threshold with topics above does NOT trash (margin gate)",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk":     ans("A", 0.95),
 				"is_person":   ans("A", 0.99),
 				"is_banking":  ans("A", 0.99),
@@ -70,7 +70,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "junk at threshold exactly 0.95 trash inclusive",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk": ans("A", 0.95),
 			},
 			policy:     defaultPolicy(),
@@ -82,7 +82,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "junk just below threshold 0.94 not trash",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk": ans("A", 0.94),
 			},
 			policy:     defaultPolicy(),
@@ -94,7 +94,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "junk below threshold but topic above still labels",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk":   ans("A", 0.94),
 				"is_person": ans("A", 0.85),
 			},
@@ -107,7 +107,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "junk choice B even high conf not trash",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk":   ans("B", 0.99),
 				"is_person": ans("A", 0.85),
 			},
@@ -120,7 +120,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "junk lowercase a at threshold trash case-insensitive",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk": ans("a", 0.95),
 			},
 			policy:     defaultPolicy(),
@@ -132,7 +132,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "junk with whitespace choice trimmed",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk": ans(" A ", 0.95),
 			},
 			policy:     defaultPolicy(),
@@ -144,7 +144,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "junk missing treated as no topics may still apply",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_person": ans("A", 0.85),
 			},
 			policy:     defaultPolicy(),
@@ -156,7 +156,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "is_person above threshold alone",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_person": ans("A", 0.85),
 			},
 			policy:     defaultPolicy(),
@@ -168,7 +168,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "is_person below threshold unclassified",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_person": ans("A", 0.69),
 			},
 			policy:     defaultPolicy(),
@@ -180,7 +180,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "is_person at exactly 0.70 inclusive",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_person": ans("A", 0.70),
 			},
 			policy:     defaultPolicy(),
@@ -192,7 +192,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "is_banking above threshold alone",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_banking": ans("A", 0.70),
 			},
 			policy:     defaultPolicy(),
@@ -204,7 +204,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "is_security above threshold alone",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_security": ans("A", 0.70),
 			},
 			policy:     defaultPolicy(),
@@ -216,7 +216,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "is_purchase above maps to accounts label",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_purchase": ans("A", 0.70),
 			},
 			policy:     defaultPolicy(),
@@ -228,7 +228,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "is_banking at exactly 0.70 inclusive",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_banking": ans("A", 0.70),
 			},
 			policy:     defaultPolicy(),
@@ -240,7 +240,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "is_security below threshold unclassified",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_security": ans("A", 0.69),
 			},
 			policy:     defaultPolicy(),
@@ -252,7 +252,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "multiple topics people+banking together",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_person":  ans("A", 0.70),
 				"is_banking": ans("A", 0.91),
 			},
@@ -265,7 +265,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "all four topics above",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_person":   ans("A", 0.70),
 				"is_banking":  ans("A", 0.70),
 				"is_security": ans("A", 0.70),
@@ -280,7 +280,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "all topics below threshold unclassified",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_person":   ans("A", 0.69),
 				"is_banking":  ans("A", 0.69),
 				"is_security": ans("A", 0.69),
@@ -306,7 +306,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name:       "empty answers map unclassified",
-			answers:    laya.Answers{},
+			answers:    systemone.Answers{},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
 			wantKind:   KindUnclassified,
@@ -316,7 +316,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "unknown choice value treated as no",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_person": ans("C", 0.99),
 				"is_junk":   ans("yes", 0.99),
 			},
@@ -329,7 +329,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "topic choice B not applied even high conf",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_person": ans("B", 0.99),
 			},
 			policy:     defaultPolicy(),
@@ -341,7 +341,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "custom thresholds topic 0.80 filters",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_person": ans("A", 0.75),
 			},
 			policy: config.Policy{
@@ -356,7 +356,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "custom thresholds topic 0.80 passes when above",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_person": ans("A", 0.85),
 			},
 			policy: config.Policy{
@@ -371,7 +371,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "custom junk threshold 0.95 not trash at 0.94",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk":   ans("A", 0.94),
 				"is_person": ans("A", 0.80),
 			},
@@ -387,7 +387,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "custom junk threshold 0.95 trash at exactly 0.95",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk": ans("A", 0.95),
 			},
 			policy: config.Policy{
@@ -402,7 +402,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "labels come from config not hardcoded custom people",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_person": ans("A", 0.85),
 			},
 			policy: defaultPolicy(),
@@ -420,7 +420,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "unclassified custom label from config",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_person": ans("A", 0.40),
 			},
 			policy: defaultPolicy(),
@@ -435,7 +435,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "nil labels map falls back to defaults",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_person": ans("A", 0.85),
 			},
 			policy:     defaultPolicy(),
@@ -447,7 +447,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "missing label key falls back to default",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_purchase": ans("A", 0.85),
 			},
 			policy: defaultPolicy(),
@@ -461,7 +461,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "junk with whitespace and lowercase b not trash",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk":   ans(" b ", 0.99),
 				"is_person": ans("A", 0.85),
 			},
@@ -474,7 +474,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "reason contains confidence formatted for trash",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk": ans("A", 0.97),
 			},
 			policy:     defaultPolicy(),
@@ -486,7 +486,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "deterministic order people before banking despite map iteration",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_banking":  ans("A", 0.85),
 				"is_person":   ans("A", 0.85),
 				"is_security": ans("A", 0.85),
@@ -500,7 +500,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "is_banking below threshold unclassified",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_banking": ans("A", 0.69),
 			},
 			policy:     defaultPolicy(),
@@ -512,7 +512,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "junk 1.00 with is_banking 0.95 not trash but banking label",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk":    ans("A", 1.00),
 				"is_banking": ans("A", 0.95),
 			},
@@ -525,7 +525,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "junk 1.00 with is_purchase 0.90 not trash but accounts label",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk":     ans("A", 1.00),
 				"is_purchase": ans("A", 0.90),
 			},
@@ -538,7 +538,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "junk 1.00 with is_security 0.90 not trash",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk":     ans("A", 1.00),
 				"is_security": ans("A", 0.90),
 			},
@@ -551,7 +551,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "junk 1.00 with banking below threshold still trash",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk":    ans("A", 1.00),
 				"is_banking": ans("A", 0.69),
 			},
@@ -564,7 +564,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "all four topics above including banking",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_person":   ans("A", 0.70),
 				"is_banking":  ans("A", 0.70),
 				"is_security": ans("A", 0.70),
@@ -579,7 +579,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "junk 1.00 with all four topics 0.90 not trash but four labels",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk":     ans("A", 1.00),
 				"is_person":   ans("A", 0.90),
 				"is_banking":  ans("A", 0.90),
@@ -595,7 +595,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "banking custom label from config",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_banking": ans("A", 0.70),
 			},
 			policy: defaultPolicy(),
@@ -613,7 +613,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "banking deterministic order second",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_banking":  ans("A", 0.70),
 				"is_person":   ans("A", 0.70),
 				"is_purchase": ans("A", 0.70),
@@ -628,7 +628,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "is_banking choice case-insensitive and whitespace",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_banking": ans(" a ", 0.70),
 			},
 			policy:     defaultPolicy(),
@@ -640,7 +640,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "margin: junk 1.00 vs banking 0.90 not trash (1.00 > 0.90+0.15 false)",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk":    ans("A", 1.00),
 				"is_banking": ans("A", 0.90),
 			},
@@ -653,7 +653,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "margin: junk 1.00 with max topic 0.69 below threshold still trash",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk":    ans("A", 1.00),
 				"is_banking": ans("A", 0.69),
 			},
@@ -666,7 +666,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "margin: junk 0.96 vs topic 0.85 not trash (0.96 > 1.00 false)",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk":   ans("A", 0.96),
 				"is_person": ans("A", 0.85),
 			},
@@ -679,7 +679,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "margin: junk with topic just at threshold not trash",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk":     ans("A", 1.00),
 				"is_person":   ans("A", 0.85),
 				"is_purchase": ans("A", 0.86),
@@ -693,7 +693,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "margin: custom low topic threshold allows junk to win when clearly above",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk":   ans("A", 1.00),
 				"is_person": ans("A", 0.70),
 			},
@@ -709,7 +709,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "margin: custom low threshold but junk not enough above max",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk":   ans("A", 0.95),
 				"is_person": ans("A", 0.90),
 			},
@@ -725,7 +725,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "margin: picks max confidence among topics",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk":     ans("A", 1.00),
 				"is_person":   ans("A", 0.86),
 				"is_purchase": ans("A", 0.95),
@@ -740,7 +740,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "margin: ignores topics below threshold when computing max",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk":    ans("A", 1.00),
 				"is_person":  ans("A", 0.69),
 				"is_banking": ans("A", 0.95),
@@ -754,7 +754,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "margin: ignores B choices when computing max",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk":    ans("A", 0.99),
 				"is_person":  ans("B", 0.99),
 				"is_banking": ans("B", 0.99),
@@ -768,7 +768,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "dropped questions ignored even if present is_opportunity",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk":        ans("B", 0.99),
 				"is_opportunity": ans("A", 0.99),
 				"needs_action":   ans("A", 0.99),
@@ -782,7 +782,7 @@ func TestDecide(t *testing.T) {
 		},
 		{
 			name: "dropped questions do not affect junk margin gate",
-			answers: laya.Answers{
+			answers: systemone.Answers{
 				"is_junk":        ans("A", 1.00),
 				"is_opportunity": ans("A", 0.99),
 				"needs_action":   ans("A", 0.99),
@@ -828,7 +828,7 @@ func TestDecide(t *testing.T) {
 }
 
 func TestDecide_PurityAndCopy(t *testing.T) {
-	answers := laya.Answers{
+	answers := systemone.Answers{
 		"is_person":  ans("A", 0.85),
 		"is_banking": ans("A", 0.85),
 	}
@@ -850,19 +850,19 @@ func TestDecide_PurityAndCopy(t *testing.T) {
 
 func TestSummarize(t *testing.T) {
 	tests := []struct {
-		action laya.Answers
+		action systemone.Answers
 		want   string
 	}{}
 	_ = tests
-	a := Decide(laya.Answers{"is_junk": ans("A", 0.97)}, defaultPolicy(), defaultLabels())
+	a := Decide(systemone.Answers{"is_junk": ans("A", 0.97)}, defaultPolicy(), defaultLabels())
 	if s := Summarize(a); !strings.Contains(s, "TRASH") {
 		t.Errorf("Summarize trash = %q, want TRASH", s)
 	}
-	b := Decide(laya.Answers{"is_person": ans("A", 0.85)}, defaultPolicy(), defaultLabels())
+	b := Decide(systemone.Answers{"is_person": ans("A", 0.85)}, defaultPolicy(), defaultLabels())
 	if s := Summarize(b); !strings.Contains(s, "LABEL") {
 		t.Errorf("Summarize label = %q, want LABEL", s)
 	}
-	c := Decide(laya.Answers{}, defaultPolicy(), defaultLabels())
+	c := Decide(systemone.Answers{}, defaultPolicy(), defaultLabels())
 	if s := Summarize(c); !strings.Contains(s, "UNCLASSIFIED") {
 		t.Errorf("Summarize unclassified = %q, want UNCLASSIFIED", s)
 	}

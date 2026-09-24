@@ -29,7 +29,7 @@ type Gmail struct {
 	TokenFile       string `yaml:"token_file"`
 }
 
-type Laya struct {
+type SystemOne struct {
 	Endpoint  string   `yaml:"endpoint"`
 	APIKeyEnv string   `yaml:"api_key_env"`
 	Timeout   Duration `yaml:"timeout"`
@@ -51,12 +51,12 @@ type Audit struct {
 }
 
 type Config struct {
-	Gmail   Gmail             `yaml:"gmail"`
-	Laya    Laya              `yaml:"laya"`
-	Policy  Policy            `yaml:"policy"`
-	Labels  map[string]string `yaml:"labels"`
-	Extract Extract           `yaml:"extract"`
-	Audit   Audit             `yaml:"audit"`
+	Gmail     Gmail             `yaml:"gmail"`
+	SystemOne SystemOne         `yaml:"systemone"`
+	Policy    Policy            `yaml:"policy"`
+	Labels    map[string]string `yaml:"labels"`
+	Extract   Extract           `yaml:"extract"`
+	Audit     Audit             `yaml:"audit"`
 }
 
 // Default returns the full configuration with every value from the spec.
@@ -66,9 +66,9 @@ func Default() *Config {
 			CredentialsFile: "client_secret.json",
 			TokenFile:       "token.json",
 		},
-		Laya: Laya{
+		SystemOne: SystemOne{
 			Endpoint:  "http://127.0.0.1:8000",
-			APIKeyEnv: "LAYA_API_KEY",
+			APIKeyEnv: "SYSTEMONE_API_KEY",
 			Timeout:   Duration(30 * time.Second),
 			Workers:   8,
 		},

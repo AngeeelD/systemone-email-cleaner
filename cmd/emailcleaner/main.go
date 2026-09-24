@@ -1,4 +1,4 @@
-// Command emailcleaner groups a Gmail inbox using a hosted Laya decision model.
+// Command emailcleaner groups a Gmail inbox using a System One decision model.
 package main
 
 import (
@@ -11,7 +11,7 @@ import (
 	"github.com/AngeeelD/systemone-email-cleaner/internal/act"
 	"github.com/AngeeelD/systemone-email-cleaner/internal/config"
 	"github.com/AngeeelD/systemone-email-cleaner/internal/gmail"
-	"github.com/AngeeelD/systemone-email-cleaner/internal/laya"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/systemone"
 )
 
 const (
@@ -38,7 +38,7 @@ type app struct {
 	authorize  func(context.Context, *config.Config) error
 	checkToken func(context.Context, *config.Config) error
 	openGmail  func(context.Context, *config.Config) (gmailAccess, error)
-	openLaya   func(context.Context, *config.Config) (layaPredictor, error)
+	openSystemOne   func(context.Context, *config.Config) (systemOnePredictor, error)
 	newApplier func(extendedGmailAccess) applier
 	stdin      io.Reader
 	clock      clockFunc
@@ -55,15 +55,15 @@ func main() {
 		sleep:      time.Sleep,
 		checkToken: checkToken,
 		openGmail:  newGmailAccess,
-		openLaya:   newLayaClient,
+		openSystemOne:   newSystemOneClient,
 		newApplier: newRealApplier,
 	}
 	a.authorize = a.interactiveAuthorize // method value; see ruling R8
 	os.Exit(a.run(os.Args[1:]))
 }
 
-func newLayaClient(_ context.Context, cfg *config.Config) (layaPredictor, error) {
-	return laya.New(cfg.Laya), nil
+func newSystemOneClient(_ context.Context, cfg *config.Config) (systemOnePredictor, error) {
+	return systemone.New(cfg.SystemOne), nil
 }
 
 func newRealApplier(g extendedGmailAccess) applier {
