@@ -3,6 +3,7 @@ package gmail
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"golang.org/x/oauth2"
 	gmailapi "google.golang.org/api/gmail/v1"
@@ -15,6 +16,12 @@ const maxPageSize = 500
 // Client is a thin wrapper over the Gmail API that returns domain types.
 type Client struct {
 	users *gmailapi.UsersService
+
+	// labelsMu guards labelIDs, a label name -> ID cache loaded on first use.
+	// Gmail's modify endpoints take label IDs, and a run touches many messages,
+	// so the label list is fetched once and reused instead of per message.
+	labelsMu sync.Mutex
+	labelIDs map[string]string
 }
 
 // NewClient builds a client authenticated with the given token source.

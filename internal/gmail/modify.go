@@ -7,21 +7,39 @@ import (
 	gmailapi "google.golang.org/api/gmail/v1"
 )
 
-// Modify applies add/remove label IDs to a single message.
+// Modify applies add/remove label names to a single message. Gmail's API takes
+// label IDs, so names are resolved first (see toLabelIDs).
 func (c *Client) Modify(ctx context.Context, messageID string, add, remove []string) error {
-	req := &gmailapi.ModifyMessageRequest{
-		AddLabelIds:    add,
-		RemoveLabelIds: remove,
+	addIDs, err := c.toLabelIDs(ctx, add)
+	if err != nil {
+		return fmt.Errorf("modify message %s: resolve add labels: %w", messageID, err)
 	}
-	_, err := c.users.Messages.Modify("me", messageID, req).Context(ctx).Do()
+	removeIDs, err := c.toLabelIDs(ctx, remove)
+	if err != nil {
+		return fmt.Errorf("modify message %s: resolve remove labels: %w", messageID, err)
+	}
+	req := &gmailapi.ModifyMessageRequest{
+		AddLabelIds:    addIDs,
+		RemoveLabelIds: removeIDs,
+	}
+	_, err = c.users.Messages.Modify("me", messageID, req).Context(ctx).Do()
 	if err != nil {
 		return fmt.Errorf("modify message %s: %w", messageID, err)
 	}
 	return nil
 }
 
-// BatchModify applies add/remove to many messages, up to 1000 per call.
+// BatchModify applies add/remove label names to many messages, up to 1000 per
+// call. Names are resolved to IDs the same way Modify does.
 func (c *Client) BatchModify(ctx context.Context, ids, add, remove []string) error {
+	addIDs, err := c.toLabelIDs(ctx, add)
+	if err != nil {
+		return fmt.Errorf("batch modify: resolve add labels: %w", err)
+	}
+	removeIDs, err := c.toLabelIDs(ctx, remove)
+	if err != nil {
+		return fmt.Errorf("batch modify: resolve remove labels: %w", err)
+	}
 	// Chunk into 1000 per Gmail limit.
 	for start := 0; start < len(ids); start += 1000 {
 		end := start + 1000
@@ -31,8 +49,8 @@ func (c *Client) BatchModify(ctx context.Context, ids, add, remove []string) err
 		chunk := ids[start:end]
 		req := &gmailapi.BatchModifyMessagesRequest{
 			Ids:            chunk,
-			AddLabelIds:    add,
-			RemoveLabelIds: remove,
+			AddLabelIds:    addIDs,
+			RemoveLabelIds: removeIDs,
 		}
 		if err := c.users.Messages.BatchModify("me", req).Context(ctx).Do(); err != nil {
 			return fmt.Errorf("batch modify: %w", err)
