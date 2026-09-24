@@ -19,10 +19,11 @@ import (
 	"emailcleaner/internal/extract"
 )
 
-// Answer is a single Laya choice answer with confidence.
+// Answer is a single Laya choice answer with confidence and optional token probabilities.
 type Answer struct {
-	Choice     string  `json:"choice"`
-	Confidence float64 `json:"confidence"`
+	Choice        string             `json:"choice"`
+	Confidence    float64            `json:"confidence"`
+	Probabilities map[string]float64 `json:"probabilities,omitempty"`
 }
 
 // Answers maps question name to its answer.
@@ -87,22 +88,23 @@ var DefaultQuestions = Questions{
 	},
 }
 
-// detectLangHint returns a model hint for the Router backend. It uses a
-// deterministic heuristic without external dependencies:
-//   - If BodyPreview+Subject+From/FromDomain contains Spanish markers
-//     (ñ,á,é,í,ó,ú,ü,¿,¡) or common Spanish words (de, la, el, con, para,
-//     por, cuenta, depósito, retiro, transferencia) or a .mx/.es domain,
-//     return "multilingual".
+// detectLangHint returns a model hint for the Router backend from a paragraph
+// string. It uses a deterministic heuristic without external dependencies:
+//   - If the paragraph contains Spanish markers (ñ,á,é,í,ó,ú,ü,¿,¡) or common
+//     Spanish words (de, la, el, con, para, por, cuenta, depósito, retiro,
+//     transferencia) or a .mx/.es domain, return "multilingual".
 //   - Otherwise return "english".
 //
 // The Router (aac6fef/laya-mlx 512 and aac6fef/laya-multilingual-mlx 1024)
 // supports {"model":"multilingual"} or {"model":"english"} passthrough to
 // force model selection per email. This hint is always set so the backend
 // can route deterministically; callers should treat it as best-effort.
-func detectLangHint(state extract.State) string {
-	text := strings.ToLower(state.BodyPreview + " " + state.Subject + " " + state.From + " " + state.FromDomain)
-	domain := strings.ToLower(strings.TrimSpace(state.FromDomain))
-	if strings.HasSuffix(domain, ".mx") || strings.HasSuffix(domain, ".es") {
+func detectLangHint(paragraph string) string {
+	text := strings.ToLower(paragraph)
+	if matched, _ := regexp.MatchString(`\.mx\b`, text); matched {
+		return "multilingual"
+	}
+	if matched, _ := regexp.MatchString(`\.es\b`, text); matched {
 		return "multilingual"
 	}
 	for _, ch := range []string{"ñ", "á", "é", "í", "ó", "ú", "ü", "¿", "¡"} {
@@ -118,6 +120,13 @@ func detectLangHint(state extract.State) string {
 		}
 	}
 	return "english"
+}
+
+// detectLangHintFromState is a compatibility shim that builds a paragraph-like
+// string from the legacy extract.State for callers still using the State object.
+func detectLangHintFromState(state extract.State) string {
+	para := state.BodyPreview + " " + state.Subject + " " + state.From + " " + state.FromDomain
+	return detectLangHint(para)
 }
 
 // ErrUnprocessable signals HTTP 422 from laya-serve. A single bad message
@@ -152,15 +161,26 @@ func New(cfg config.Laya) *Client {
 }
 
 // Predict sends state with DefaultQuestions to POST /v1/systemone and returns
-// the answers. It is the primary entry point for the cleaner pipeline.
+// the answers. It is kept for backward compatibility and delegates to the
+// paragraph path. New callers should use PredictParagraph.
 func (c *Client) Predict(ctx context.Context, state extract.State) (Answers, error) {
 	return c.PredictWithQuestions(ctx, state, DefaultQuestions)
 }
 
-// PredictWithQuestions sends state with an explicit questions map. It exists so
-// callers and tests can override or extend the taxonomy without forking the
-// client. Pass nil to send no questions (useful only for testing error paths).
+// PredictWithQuestions sends state with an explicit questions map. Deprecated:
+// use PredictParagraphWithQuestions with a paragraph string.
 func (c *Client) PredictWithQuestions(ctx context.Context, state extract.State, qs Questions) (Answers, error) {
+	para := stateToParagraph(state)
+	return c.PredictParagraphWithQuestions(ctx, para, qs)
+}
+
+// PredictParagraph sends a natural-language paragraph with DefaultQuestions.
+func (c *Client) PredictParagraph(ctx context.Context, paragraph string) (Answers, error) {
+	return c.PredictParagraphWithQuestions(ctx, paragraph, DefaultQuestions)
+}
+
+// PredictParagraphWithQuestions sends paragraph with an explicit questions map.
+func (c *Client) PredictParagraphWithQuestions(ctx context.Context, paragraph string, qs Questions) (Answers, error) {
 	if c.endpoint == "" {
 		return nil, errors.New("laya: endpoint is empty")
 	}
@@ -168,13 +188,13 @@ func (c *Client) PredictWithQuestions(ctx context.Context, state extract.State, 
 		qs = DefaultQuestions
 	}
 
-	modelHint := detectLangHint(state)
+	modelHint := detectLangHint(paragraph)
 	reqBody := struct {
-		State     extract.State `json:"state"`
-		Questions Questions     `json:"questions"`
-		Model     string        `json:"model,omitempty"`
+		State     string    `json:"state"`
+		Questions Questions `json:"questions"`
+		Model     string    `json:"model,omitempty"`
 	}{
-		State:     state,
+		State:     paragraph,
 		Questions: qs,
 		Model:     modelHint,
 	}
@@ -312,6 +332,44 @@ func (c *Client) Ping(ctx context.Context) error {
 		return fmt.Errorf("laya: ping unexpected status %d: %s", resp.StatusCode, truncate(body, 200))
 	}
 	return nil
+}
+
+// stateToParagraph converts a legacy State JSON object into the paragraph
+// format used by PredictParagraph. It mirrors extract.ToParagraph but
+// operates on already-extracted State fields.
+func stateToParagraph(state extract.State) string {
+	var dateStr string
+	if state.Date != "" {
+		// State.Date is RFC3339; extract short date 2006-01-02 for paragraph.
+		if t, err := time.Parse(time.RFC3339, state.Date); err == nil {
+			dateStr = t.Format("2006-01-02")
+		} else if len(state.Date) >= 10 {
+			dateStr = state.Date[:10]
+		} else {
+			dateStr = state.Date
+		}
+	}
+	var b strings.Builder
+	if state.FromDomain != "" {
+		b.WriteString("From: ")
+		b.WriteString(state.From)
+		b.WriteString(" (")
+		b.WriteString(state.FromDomain)
+		b.WriteString(")")
+	} else {
+		b.WriteString("From: ")
+		b.WriteString(state.From)
+	}
+	b.WriteString("\nSubject: ")
+	b.WriteString(state.Subject)
+	b.WriteString("\nDate: ")
+	b.WriteString(dateStr)
+	b.WriteString("\nBody: ")
+	b.WriteString(state.BodyPreview)
+	if state.HasAttachments {
+		b.WriteString("\nHas attachment: yes")
+	}
+	return b.String()
 }
 
 func truncate(b []byte, n int) string {

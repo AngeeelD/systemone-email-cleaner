@@ -54,7 +54,7 @@ func newTestClient(t *testing.T, handler http.Handler) *Client {
 }
 
 func TestPredict_Success_AllFiveAnswers(t *testing.T) {
-	var gotState extract.State
+	var gotState string
 	var gotQuestions Questions
 	var gotModel string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -68,9 +68,9 @@ func TestPredict_Success_AllFiveAnswers(t *testing.T) {
 			t.Errorf("Content-Type = %q, want application/json", ct)
 		}
 		var req struct {
-			State     extract.State `json:"state"`
-			Questions Questions     `json:"questions"`
-			Model     string        `json:"model"`
+			State     string    `json:"state"`
+			Questions Questions `json:"questions"`
+			Model     string    `json:"model"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			t.Fatalf("decode request: %v", err)
@@ -106,9 +106,9 @@ func TestPredict_Success_AllFiveAnswers(t *testing.T) {
 			t.Errorf("answer %q confidence = %v, want [0,1]", key, a.Confidence)
 		}
 	}
-	// Verify state was forwarded.
-	if gotState.Subject != "Invoice #4411" {
-		t.Errorf("forwarded state subject = %q, want %q", gotState.Subject, "Invoice #4411")
+	// Verify state was forwarded as paragraph containing subject.
+	if !strings.Contains(gotState, "Invoice #4411") {
+		t.Errorf("forwarded state = %q, want to contain %q", gotState, "Invoice #4411")
 	}
 	if len(gotQuestions) != 5 {
 		t.Errorf("forwarded questions len = %d, want 5", len(gotQuestions))

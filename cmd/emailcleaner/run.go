@@ -26,6 +26,7 @@ import (
 // layaPredictor abstracts Laya for run.
 type layaPredictor interface {
 	Predict(ctx context.Context, state extract.State) (laya.Answers, error)
+	PredictParagraph(ctx context.Context, paragraph string) (laya.Answers, error)
 	Ping(ctx context.Context) error
 }
 
@@ -474,12 +475,12 @@ func processOne(ctx context.Context, gmailClient extendedGmailAccess, layaClient
 	rec.Subject = msg.Subject
 	rec.LabelsBefore = append([]string(nil), msg.LabelIDs...)
 
-	state := extract.ToState(*msg, cfg.Extract)
+	paragraph := extract.ToParagraph(*msg, cfg.Extract)
 
 	// Predict with 429 backoff and 422 handling
 	var answers laya.Answers
 	for attempt := 0; attempt < 4; attempt++ {
-		answers, err = layaClient.Predict(ctx, state)
+		answers, err = layaClient.PredictParagraph(ctx, paragraph)
 		if err == nil {
 			break
 		}

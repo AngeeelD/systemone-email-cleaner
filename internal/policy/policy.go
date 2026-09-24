@@ -80,15 +80,15 @@ func Decide(answers laya.Answers, cfg config.Policy, labels map[string]string) A
 				Kind:        KindTrash,
 				Labels:      nil,
 				ShouldTrash: true,
-				Reason:      fmt.Sprintf("is_junk conf=%.2f >= %.2f", ans.Confidence, cfg.MinConfidenceJunk),
+				Reason:      fmt.Sprintf("is_junk conf=%.2f >= %.2f", effectiveScore(ans), cfg.MinConfidenceJunk),
 			}
 		}
-		if ans.Confidence > maxTopicConf+0.15 {
+		if effectiveScore(ans) > maxTopicConf+0.15 {
 			return Action{
 				Kind:        KindTrash,
 				Labels:      nil,
 				ShouldTrash: true,
-				Reason:      fmt.Sprintf("is_junk conf=%.2f > max_topic conf=%.2f + 0.15", ans.Confidence, maxTopicConf),
+				Reason:      fmt.Sprintf("is_junk conf=%.2f > max_topic conf=%.2f + 0.15", effectiveScore(ans), maxTopicConf),
 			}
 		}
 	}
@@ -109,7 +109,7 @@ func Decide(answers laya.Answers, cfg config.Policy, labels map[string]string) A
 			label = v
 		}
 		toAdd = append(toAdd, label)
-		reasonParts = append(reasonParts, fmt.Sprintf("%s conf=%.2f", td.Question, ans.Confidence))
+		reasonParts = append(reasonParts, fmt.Sprintf("%s conf=%.2f", td.Question, effectiveScore(ans)))
 	}
 
 	if len(toAdd) > 0 {
@@ -145,18 +145,50 @@ func Decide(answers laya.Answers, cfg config.Policy, labels map[string]string) A
 }
 
 // isYes reports whether ans is an affirmative (choice A) with confidence at
-// or above threshold. Choice is trimmed and case-insensitive; any other value
-// (B, C, "", "yes") is treated as negative.
+// or above threshold. When Probabilities are present, it gates on
+// probabilities[A] (or probabilities[Choice] fallback) instead of Confidence,
+// because laya confidence is ~0.10 while token probabilities carry the real
+// signal (~0.68 for true banking). Choice is trimmed and case-insensitive.
 func isYes(ans laya.Answer, threshold float64) bool {
 	choice := strings.TrimSpace(ans.Choice)
 	if !strings.EqualFold(choice, "A") {
 		return false
 	}
+	if ans.Probabilities != nil {
+		if p, ok := ans.Probabilities["A"]; ok {
+			return p >= threshold
+		}
+		if p, ok := ans.Probabilities[ans.Choice]; ok {
+			return p >= threshold
+		}
+		// Also try upper-cased Choice key for case where Choice is "a ".
+		if p, ok := ans.Probabilities[strings.ToUpper(strings.TrimSpace(ans.Choice))]; ok {
+			return p >= threshold
+		}
+	}
 	return ans.Confidence >= threshold
 }
 
-// maxTopicConfidence returns the topic question with the highest confidence
-// among present answers, regardless of choice value. Used only for the
+// effectiveScore returns the probability for choice A when Probabilities are
+// present, otherwise Confidence. This is the signal used for threshold and
+// margin gating.
+func effectiveScore(ans laya.Answer) float64 {
+	if ans.Probabilities != nil {
+		if p, ok := ans.Probabilities["A"]; ok {
+			return p
+		}
+		if p, ok := ans.Probabilities[ans.Choice]; ok {
+			return p
+		}
+		if p, ok := ans.Probabilities[strings.ToUpper(strings.TrimSpace(ans.Choice))]; ok {
+			return p
+		}
+	}
+	return ans.Confidence
+}
+
+// maxTopicConfidence returns the topic question with the highest effective
+// score among present answers, regardless of choice value. Used only for the
 // unclassified reason string.
 func maxTopicConfidence(answers laya.Answers) (string, float64, bool) {
 	var best string
@@ -164,9 +196,10 @@ func maxTopicConfidence(answers laya.Answers) (string, float64, bool) {
 	found := false
 	for _, td := range topicOrder {
 		if ans, ok := answers[td.Question]; ok {
-			if !found || ans.Confidence > bestConf {
+			score := effectiveScore(ans)
+			if !found || score > bestConf {
 				best = td.Question
-				bestConf = ans.Confidence
+				bestConf = score
 				found = true
 			}
 		}
@@ -174,7 +207,7 @@ func maxTopicConfidence(answers laya.Answers) (string, float64, bool) {
 	return best, bestConf, found
 }
 
-// maxTopicConfidenceFiltered returns the highest confidence among topics that
+// maxTopicConfidenceFiltered returns the highest effective score among topics that
 // are affirmative (choice A, case-insensitive, trimmed) and meet the threshold.
 // It is used for the junk margin gate.
 func maxTopicConfidenceFiltered(answers laya.Answers, threshold float64) (float64, bool) {
@@ -182,8 +215,9 @@ func maxTopicConfidenceFiltered(answers laya.Answers, threshold float64) (float6
 	found := false
 	for _, td := range topicOrder {
 		if ans, ok := answers[td.Question]; ok && isYes(ans, threshold) {
-			if !found || ans.Confidence > best {
-				best = ans.Confidence
+			score := effectiveScore(ans)
+			if !found || score > best {
+				best = score
 				found = true
 			}
 		}

@@ -4,9 +4,9 @@
 package extract
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"golang.org/x/net/html"
 
@@ -20,10 +20,10 @@ type State struct {
 	From           string   `json:"from"`
 	FromDomain     string   `json:"from_domain"`
 	Subject        string   `json:"subject"`
-	Date           string   `json:"date"` // short YYYY-MM-DD; empty when unknown
+	Date           string   `json:"date"` // RFC3339; empty when unknown
 	Labels         []string `json:"labels,omitempty"`
 	HasAttachments bool     `json:"has_attachments"`
-	BodyPreview    string   `json:"body_preview"` // truncated sandwich to budget runes
+	BodyPreview    string   `json:"body_preview"` // truncated to BodyPreviewChars runes
 }
 
 const defaultPreviewChars = 800
@@ -44,10 +44,13 @@ func StateFrom(msg gmail.Message) State {
 }
 
 // ToState converts msg into a State, applying HTML stripping, quoted-reply
-// trimming, signature trimming, whitespace collapse, dynamic budget selection,
-// and sandwich signal duplication.
+// trimming, signature trimming, whitespace collapse, and rune-aware truncation.
+// previewChars is read from cfg.BodyPreviewChars; values <=0 fall back to 800.
 func ToState(msg gmail.Message, cfg config.Extract) State {
-	previewChars := chooseBudget(msg, cfg)
+	previewChars := cfg.BodyPreviewChars
+	if previewChars <= 0 {
+		previewChars = defaultPreviewChars
+	}
 
 	// Domain: prefer the domain already extracted by gmail.Message, but
 	// recompute from From as a fallback for hand-constructed messages.
@@ -56,13 +59,110 @@ func ToState(msg gmail.Message, cfg config.Extract) State {
 		domain = domainOf(msg.From)
 	}
 
-	// Date: short YYYY-MM-DD to save tokens; empty when unknown.
+	// Date: empty when the header was missing or unparseable.
+	var dateStr string
+	if !msg.Date.IsZero() {
+		dateStr = msg.Date.Format(time.RFC3339)
+	}
+
+	// Body selection and pipeline.
+	raw := cleanedBodyRaw(msg)
+	// Pipeline order per spec: HTML already handled, then quoted, signature, whitespace, budget.
+	raw = trimQuotedReply(raw)
+	raw = trimSignature(raw)
+	raw = collapseWhitespace(raw)
+	raw = truncateRunes(raw, previewChars)
+
+	// Copy labels to avoid aliasing the input slice.
+	var labels []string
+	if len(msg.LabelIDs) > 0 {
+		labels = make([]string, len(msg.LabelIDs))
+		copy(labels, msg.LabelIDs)
+	}
+
+	return State{
+		From:           msg.From,
+		FromDomain:     domain,
+		Subject:        msg.Subject,
+		Date:           dateStr,
+		Labels:         labels,
+		HasAttachments: msg.HasAttachments,
+		BodyPreview:    raw,
+	}
+}
+
+// ToParagraph returns a natural-language paragraph for Laya. It uses the same
+// body pipeline as ToState (HTML stripping, quoted-reply trimming, signature
+// trimming, whitespace collapse) but formats as a paragraph:
+//
+//	From: {From} ({FromDomain})
+//	Subject: {Subject}
+//	Date: {2006-01-02}
+//	Body: {cleanedBody}
+//
+// If HasAttachments is true, an extra line "\nHas attachment: yes" is appended.
+// Labels are never included. Body is truncated to a dynamic budget: if the
+// isMultilingual heuristic matches, BodyPreviewCharsMultilingual (default 1600)
+// is used, otherwise BodyPreviewChars (default 800). Overhead of ~60 chars for
+// the From/Subject/Date framing is accounted for implicitly — the body budget
+// is the rune limit for BodyPreview only.
+func ToParagraph(msg gmail.Message, cfg config.Extract) string {
+	previewChars := cfg.BodyPreviewChars
+	if previewChars <= 0 {
+		previewChars = defaultPreviewChars
+	}
+	previewCharsMulti := cfg.BodyPreviewCharsMultilingual
+	if previewCharsMulti <= 0 {
+		previewCharsMulti = defaultPreviewCharsMultilingual
+	}
+
+	domain := msg.FromDomain
+	if domain == "" {
+		domain = domainOf(msg.From)
+	}
+
+	raw := cleanedBodyRaw(msg)
+	raw = trimQuotedReply(raw)
+	raw = trimSignature(raw)
+	raw = collapseWhitespace(raw)
+
+	// Dynamic budget based on multilingual heuristic (checked before truncation).
+	budget := previewChars
+	if isMultilingualHeuristic(msg, raw, domain) {
+		budget = previewCharsMulti
+	}
+	raw = truncateRunes(raw, budget)
+
 	var dateStr string
 	if !msg.Date.IsZero() {
 		dateStr = msg.Date.Format("2006-01-02")
 	}
 
-	// Body selection and pipeline (without truncation — sandwich handles budget).
+	var b strings.Builder
+	if domain != "" {
+		b.WriteString("From: ")
+		b.WriteString(msg.From)
+		b.WriteString(" (")
+		b.WriteString(domain)
+		b.WriteString(")")
+	} else {
+		b.WriteString("From: ")
+		b.WriteString(msg.From)
+	}
+	b.WriteString("\nSubject: ")
+	b.WriteString(msg.Subject)
+	b.WriteString("\nDate: ")
+	b.WriteString(dateStr)
+	b.WriteString("\nBody: ")
+	b.WriteString(raw)
+	if msg.HasAttachments {
+		b.WriteString("\nHas attachment: yes")
+	}
+	return b.String()
+}
+
+// cleanedBodyRaw extracts the raw body text preferring BodyText over HTML.
+func cleanedBodyRaw(msg gmail.Message) string {
 	raw := msg.BodyText
 	if raw == "" {
 		raw = msg.BodyHTML
@@ -70,49 +170,16 @@ func ToState(msg gmail.Message, cfg config.Extract) State {
 			raw = htmlToText(raw)
 		}
 	}
-	raw = trimQuotedReply(raw)
-	raw = trimSignature(raw)
-	raw = collapseWhitespace(raw)
-
-	// Sandwich signal duplication.
-	bodyPreview := buildSandwich(msg.From, domain, msg.Subject, dateStr, msg.HasAttachments, raw, previewChars)
-
-	// Drop low-signal Labels field entirely (omitempty will omit).
-	return State{
-		From:           msg.From,
-		FromDomain:     domain,
-		Subject:        msg.Subject,
-		Date:           dateStr,
-		Labels:         nil,
-		HasAttachments: msg.HasAttachments,
-		BodyPreview:    bodyPreview,
-	}
+	return raw
 }
 
-// chooseBudget selects 800 for English and 1600 for multilingual content.
-func chooseBudget(msg gmail.Message, cfg config.Extract) int {
-	englishBudget := cfg.BodyPreviewChars
-	if englishBudget <= 0 {
-		englishBudget = defaultPreviewChars
-	}
-	multiBudget := cfg.BodyPreviewCharsMultilingual
-	if multiBudget <= 0 {
-		multiBudget = defaultPreviewCharsMultilingual
-	}
-	if isMultilingual(msg) {
-		return multiBudget
-	}
-	return englishBudget
-}
-
-// isMultilingual detects Spanish/multilingual content via markers, keywords, or domain.
-func isMultilingual(msg gmail.Message) bool {
-	text := strings.ToLower(msg.Subject + " " + msg.BodyText + " " + msg.BodyHTML + " " + msg.From)
-	domain := strings.ToLower(strings.TrimSpace(msg.FromDomain))
-	if domain == "" {
-		domain = strings.ToLower(domainOf(msg.From))
-	}
-	if strings.HasSuffix(domain, ".mx") || strings.HasSuffix(domain, ".es") {
+// isMultilingualHeuristic reports whether the message appears to be
+// multilingual/Spanish, mirroring laya.detectLangHint. It checks domain
+// suffix, Spanish diacritics, and common Spanish words.
+func isMultilingualHeuristic(msg gmail.Message, cleanedBody string, domain string) bool {
+	text := strings.ToLower(cleanedBody + " " + msg.Subject + " " + msg.From + " " + domain)
+	domainLower := strings.ToLower(strings.TrimSpace(domain))
+	if strings.HasSuffix(domainLower, ".mx") || strings.HasSuffix(domainLower, ".es") {
 		return true
 	}
 	for _, ch := range []string{"ñ", "á", "é", "í", "ó", "ú", "ü", "¿", "¡"} {
@@ -120,43 +187,14 @@ func isMultilingual(msg gmail.Message) bool {
 			return true
 		}
 	}
-	spanishKeywords := []string{"de", "la", "el", "cuenta", "depósito", "retiro", "transferencia", "banco"}
-	for _, w := range spanishKeywords {
+	spanishWords := []string{"de", "la", "el", "con", "para", "por", "cuenta", "depósito", "retiro", "transferencia"}
+	for _, w := range spanishWords {
 		pattern := `\b` + regexp.QuoteMeta(w) + `\b`
 		if matched, _ := regexp.MatchString(pattern, text); matched {
 			return true
 		}
 	}
 	return false
-}
-
-// buildSandwich composes the body preview with duplicated sender/subject/date
-// signals at both ends to mitigate recency bias, verbalizes HasAttachments,
-// and adds a bank notification hint when the sender looks like a bank.
-func buildSandwich(from, domain, subject, shortDate string, hasAttachments bool, body string, budget int) string {
-	if budget <= 0 {
-		return ""
-	}
-	prefix := fmt.Sprintf("Sender: %s (%s) | Subject: %s | Date: %s | ", from, domain, subject, shortDate)
-	if hasAttachments {
-		prefix += "Attachment: yes | "
-	} else {
-		prefix += "Attachment: none | "
-	}
-	lowerFrom := strings.ToLower(from + " " + domain)
-	if strings.Contains(lowerFrom, "banamex") || strings.Contains(lowerFrom, "banco") || strings.Contains(lowerFrom, "santander") || strings.Contains(lowerFrom, "bbva") {
-		prefix += "bank notification | "
-	}
-	suffix := fmt.Sprintf(" | Sender: %s %s, Subject: %s", from, domain, subject)
-	bodyLabel := "Body: "
-	overhead := len([]rune(prefix)) + len([]rune(bodyLabel)) + len([]rune(suffix))
-	bodyBudget := budget - overhead
-	if bodyBudget < 0 {
-		bodyBudget = 0
-	}
-	truncatedBody := truncateRunes(body, bodyBudget)
-	full := prefix + bodyLabel + truncatedBody + suffix
-	return truncateRunes(full, budget)
 }
 
 // htmlToText strips HTML tags and returns visible text. Script, style, and
