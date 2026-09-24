@@ -54,12 +54,12 @@ var topicOrder = []topicDef{
 
 // Decide applies the four-step policy from the spec in order:
 //
-//  1. is_junk == A and confidence >= min_confidence_junk → Trash ONLY if no
-//     other topic (is_person, needs_action, is_security, is_purchase,
-//     is_opportunity, is_banking) is >= min_confidence_topic. If any topic
-//     clears threshold, do NOT trash even if is_junk is 1.00; proceed to
-//     label topics. This prevents banking/purchase messages misclassified as
-//     junk from being trashed.
+//  1. is_junk == A and confidence >= min_confidence_junk → Trash ONLY if
+//     is_junk confidence exceeds the highest topic confidence (among topics
+//     where choice is A and conf >= min_confidence_topic) by more than 0.15.
+//     If no topic clears its threshold, junk wins immediately. This margin
+//     gate counters overconfidence (e.g. is_junk 1.00 alongside banking 0.90)
+//     where the previous "no topic >= threshold" gate was too permissive.
 //  2. For each topic answered A with confidence >= min_confidence_topic → add its label.
 //     Includes is_banking → cleaner/banking.
 //  3. Not junk and no topic cleared threshold → cleaner/unclassified.
@@ -69,21 +69,23 @@ var topicOrder = []topicDef{
 // answers are treated as "no". Choice comparison is case-insensitive and
 // whitespace-trimmed. Threshold comparison is inclusive (>=).
 func Decide(answers laya.Answers, cfg config.Policy, labels map[string]string) Action {
-	// Step 1: junk gate — exclusive only when no other topic fires.
+	// Step 1: junk gate with margin — trash only if junk clearly beats best topic.
 	if ans, ok := answers["is_junk"]; ok && isYes(ans, cfg.MinConfidenceJunk) {
-		hasTopic := false
-		for _, td := range topicOrder {
-			if tAns, ok := answers[td.Question]; ok && isYes(tAns, cfg.MinConfidenceTopic) {
-				hasTopic = true
-				break
-			}
-		}
+		maxTopicConf, hasTopic := maxTopicConfidenceFiltered(answers, cfg.MinConfidenceTopic)
 		if !hasTopic {
 			return Action{
 				Kind:        KindTrash,
 				Labels:      nil,
 				ShouldTrash: true,
 				Reason:      fmt.Sprintf("is_junk conf=%.2f >= %.2f", ans.Confidence, cfg.MinConfidenceJunk),
+			}
+		}
+		if ans.Confidence > maxTopicConf+0.15 {
+			return Action{
+				Kind:        KindTrash,
+				Labels:      nil,
+				ShouldTrash: true,
+				Reason:      fmt.Sprintf("is_junk conf=%.2f > max_topic conf=%.2f + 0.15", ans.Confidence, maxTopicConf),
 			}
 		}
 	}
@@ -167,6 +169,23 @@ func maxTopicConfidence(answers laya.Answers) (string, float64, bool) {
 		}
 	}
 	return best, bestConf, found
+}
+
+// maxTopicConfidenceFiltered returns the highest confidence among topics that
+// are affirmative (choice A, case-insensitive, trimmed) and meet the threshold.
+// It is used for the junk margin gate.
+func maxTopicConfidenceFiltered(answers laya.Answers, threshold float64) (float64, bool) {
+	var best float64
+	found := false
+	for _, td := range topicOrder {
+		if ans, ok := answers[td.Question]; ok && isYes(ans, threshold) {
+			if !found || ans.Confidence > best {
+				best = ans.Confidence
+				found = true
+			}
+		}
+	}
+	return best, found
 }
 
 // Summarize returns a one-line human-readable summary of an Action, useful

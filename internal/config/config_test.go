@@ -33,8 +33,8 @@ func TestLoadAppliesDefaultsForAbsentKeys(t *testing.T) {
 	if got.Laya.Timeout.Std() != 30*time.Second {
 		t.Errorf("Laya.Timeout = %v, want 30s", got.Laya.Timeout.Std())
 	}
-	if got.Policy.MinConfidenceJunk != 0.90 {
-		t.Errorf("MinConfidenceJunk = %v, want 0.90", got.Policy.MinConfidenceJunk)
+	if got.Policy.MinConfidenceJunk != 0.95 {
+		t.Errorf("MinConfidenceJunk = %v, want 0.95", got.Policy.MinConfidenceJunk)
 	}
 	if got.Labels["people"] != "cleaner/people" {
 		t.Errorf("Labels[people] = %q, want cleaner/people", got.Labels["people"])

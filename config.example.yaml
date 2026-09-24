@@ -8,8 +8,8 @@ laya:
   timeout: 30s
   workers: 8
 policy:
-  min_confidence_junk: 0.90
-  min_confidence_topic: 0.70
+  min_confidence_junk: 0.95
+  min_confidence_topic: 0.85
 labels:
   people: cleaner/people
   action: cleaner/action

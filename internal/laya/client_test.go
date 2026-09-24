@@ -497,29 +497,46 @@ func TestDefaultQuestions_Complete(t *testing.T) {
 			t.Errorf("question %q instructions empty", key)
 		}
 	}
-	// Verify is_banking criteria values exactly as specified.
+	// Verify descriptive format: is_junk uses "Which best describes" and new criteria.
+	if q := DefaultQuestions["is_junk"]; q.Criteria["A"] != "unwanted bulk or marketing email" {
+		t.Errorf("is_junk criteria A = %q, want %q", q.Criteria["A"], "unwanted bulk or marketing email")
+	}
+	if q := DefaultQuestions["is_junk"]; q.Criteria["B"] != "personal or transactional email" {
+		t.Errorf("is_junk criteria B = %q, want %q", q.Criteria["B"], "personal or transactional email")
+	}
+	if q := DefaultQuestions["is_junk"]; !strings.Contains(q.Instructions, "Which best describes this email?") {
+		t.Errorf("is_junk instructions missing descriptive prefix, got %q", q.Instructions)
+	}
+	if q := DefaultQuestions["is_junk"]; !strings.Contains(q.Instructions, "When unsure choose B.") {
+		t.Errorf("is_junk instructions missing 'When unsure choose B.', got %q", q.Instructions)
+	}
+	// Verify is_banking criteria values exactly as specified (unchanged).
 	if q := DefaultQuestions["is_banking"]; q.Criteria["A"] != "yes, bank/fintech transaction notification" {
 		t.Errorf("is_banking criteria A = %q, want %q", q.Criteria["A"], "yes, bank/fintech transaction notification")
 	}
 	if q := DefaultQuestions["is_banking"]; q.Criteria["B"] != "no, not a banking notification" {
 		t.Errorf("is_banking criteria B = %q, want %q", q.Criteria["B"], "no, not a banking notification")
 	}
-	// is_junk must explicitly exclude banking.
-	if q := DefaultQuestions["is_junk"]; !strings.Contains(q.Instructions, "Bank deposits, withdrawals, transfers, and balance alerts are NOT junk") {
-		t.Errorf("is_junk instructions missing banking exclusion, got %q", q.Instructions)
+	// Descriptive instructions checks.
+	if q := DefaultQuestions["is_person"]; !strings.Contains(q.Instructions, "Who is the sender?") {
+		t.Errorf("is_person instructions missing 'Who is the sender?', got %q", q.Instructions)
 	}
-	if q := DefaultQuestions["is_junk"]; !strings.Contains(q.Instructions, "Do not count account alerts as junk") {
-		t.Errorf("is_junk instructions missing account alerts phrase, got %q", q.Instructions)
+	if q := DefaultQuestions["needs_action"]; !strings.Contains(q.Instructions, "What does the email ask the recipient to do?") {
+		t.Errorf("needs_action instructions missing descriptive prefix, got %q", q.Instructions)
 	}
-	// is_purchase must include e-commerce order status phrases.
-	if q := DefaultQuestions["is_purchase"]; !strings.Contains(q.Instructions, "pedido confirmado/enviado/entregado") {
-		t.Errorf("is_purchase instructions missing e-commerce phrases, got %q", q.Instructions)
+	if q := DefaultQuestions["is_security"]; !strings.Contains(q.Instructions, "What is the email about?") {
+		t.Errorf("is_security instructions missing 'What is the email about?', got %q", q.Instructions)
 	}
-	if q := DefaultQuestions["is_purchase"]; !strings.Contains(q.Instructions, "recibo de pago") {
-		t.Errorf("is_purchase instructions missing recibo de pago, got %q", q.Instructions)
+	if q := DefaultQuestions["is_purchase"]; !strings.Contains(q.Instructions, "What is the email about?") {
+		t.Errorf("is_purchase instructions missing 'What is the email about?', got %q", q.Instructions)
 	}
-	// is_banking must contain Spanish keywords.
-	if q := DefaultQuestions["is_banking"]; !strings.Contains(q.Instructions, "depósitos, retiros, transferencias") {
-		t.Errorf("is_banking instructions missing Spanish keywords, got %q", q.Instructions)
+	if q := DefaultQuestions["is_opportunity"]; !strings.Contains(q.Instructions, "What is the email about?") {
+		t.Errorf("is_opportunity instructions missing 'What is the email about?', got %q", q.Instructions)
+	}
+	if q := DefaultQuestions["is_banking"]; !strings.Contains(q.Instructions, "What is the email about?") {
+		t.Errorf("is_banking instructions missing 'What is the email about?', got %q", q.Instructions)
+	}
+	if q := DefaultQuestions["is_banking"]; !strings.Contains(q.Instructions, "bank or fintech transaction") {
+		t.Errorf("is_banking instructions missing 'bank or fintech transaction', got %q", q.Instructions)
 	}
 }

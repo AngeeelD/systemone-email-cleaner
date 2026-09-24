@@ -37,20 +37,22 @@ type Question struct {
 // Questions maps question name to its definition.
 type Questions map[string]Question
 
-// DefaultQuestions is the seven-question taxonomy defined verbatim in the
-// design spec (plus is_banking). Each question is a 2-option choice with neutral keys A/B.
+// DefaultQuestions is the seven-question descriptive taxonomy. Each question is a
+// 2-option choice with neutral keys A/B. Instructions are descriptive ("which
+// best describes... / what is the email about") rather than decision-oriented
+// ("should recipient...") to reduce overconfidence.
 var DefaultQuestions = Questions{
 	"is_junk": {
 		Type:         "choice",
-		Instructions: "Is this email unwanted bulk mail the recipient should not keep? Count as junk: marketing and promotions, newsletters the recipient did not sign up for, mass automated notifications, spam, phishing. Answer no if a real person wrote to the recipient, or if it may contain an invoice, an order, an account or security alert, or anything the recipient may need to act on. When unsure, answer no. Bank deposits, withdrawals, transfers, and balance alerts are NOT junk; when in doubt answer B. Do not count account alerts as junk.",
+		Instructions: "Which best describes this email? Count as junk: marketing and promotions, newsletters, mass automated notifications, spam. Not junk: personal messages, transaction receipts, account alerts, bank notifications. When unsure choose B.",
 		Criteria: map[string]string{
-			"A": "yes, unwanted bulk or junk mail",
-			"B": "no, this is not junk",
+			"A": "unwanted bulk or marketing email",
+			"B": "personal or transactional email",
 		},
 	},
 	"is_person": {
 		Type:         "choice",
-		Instructions: "Was this email written by a real human being addressing the recipient directly, as opposed to an automated system, mailing list, or bulk sender?",
+		Instructions: "Who is the sender? A) A single real person writing directly to the recipient B) An automated system, noreply address, or bulk sender",
 		Criteria: map[string]string{
 			"A": "yes, written by a real person",
 			"B": "no, automated or bulk",
@@ -58,7 +60,7 @@ var DefaultQuestions = Questions{
 	},
 	"needs_action": {
 		Type:         "choice",
-		Instructions: "Does this email expect a response or an action from the recipient? Count: invoices to pay, contracts to sign, deadlines, questions asked directly. Do not count: informational notices, order confirmations the recipient only files, marketing.",
+		Instructions: "What does the email ask the recipient to do? A) It requests a specific reply or action (pay, sign, answer a question, meet a deadline) B) It is informational only",
 		Criteria: map[string]string{
 			"A": "yes, the recipient must act or reply",
 			"B": "no action is required",
@@ -66,7 +68,7 @@ var DefaultQuestions = Questions{
 	},
 	"is_security": {
 		Type:         "choice",
-		Instructions: "Is this an account or security notice from a service provider? Count: sign-in and access alerts, password changes, two-factor codes, banking and card transaction alerts, suspicious activity warnings, breach notifications.",
+		Instructions: "What is the email about? A) An account or security event (sign-in alert, password change, 2FA code, banking transaction alert, suspicious activity) B) Not about security",
 		Criteria: map[string]string{
 			"A": "yes, account or security notice",
 			"B": "no, not a security notice",
@@ -74,7 +76,7 @@ var DefaultQuestions = Questions{
 	},
 	"is_purchase": {
 		Type:         "choice",
-		Instructions: "Is this about a purchase or a delivery? Count: order confirmations, receipts, invoices for something bought, shipping and tracking updates, reservations, active subscription notices. Also count: order status updates (pedido confirmado/enviado/entregado/en proceso), delivery tracking, receipts (recibo de pago), tickets (Su Ticket).",
+		Instructions: "What is the email about? A) A purchase, order, receipt, invoice, shipping, delivery, reservation or subscription B) Not about a purchase/delivery",
 		Criteria: map[string]string{
 			"A": "yes, purchase, receipt or delivery",
 			"B": "no, not about a purchase",
@@ -82,7 +84,7 @@ var DefaultQuestions = Questions{
 	},
 	"is_opportunity": {
 		Type:         "choice",
-		Instructions: "Is this a professional opportunity the recipient may want to act on? Count: recruiters and job offers, freelance or contract proposals, networking, collaboration requests, commercial leads. Answer no for mass job-alert digests unless they name the recipient for a specific role.",
+		Instructions: "What is the email about? A) A specific professional opportunity (recruiter, job offer, freelance, collaboration) B) Not an opportunity or mass job digest",
 		Criteria: map[string]string{
 			"A": "yes, a professional opportunity",
 			"B": "no, not an opportunity",
@@ -90,7 +92,7 @@ var DefaultQuestions = Questions{
 	},
 	"is_banking": {
 		Type:         "choice",
-		Instructions: "Is this a bank or fintech notification about a deposit, withdrawal, transfer, card charge, balance alert, or account statement? Count: depósitos, retiros, transferencias, cargos, saldo, estado de cuenta, alta de destinatario. Answer yes only for financial transaction notifications, not for marketing about banking products.",
+		Instructions: "What is the email about? A) A specific bank or fintech transaction (deposit, withdrawal, transfer, card charge, balance, statement, recipient registration) B) Not about a bank transaction",
 		Criteria: map[string]string{
 			"A": "yes, bank/fintech transaction notification",
 			"B": "no, not a banking notification",

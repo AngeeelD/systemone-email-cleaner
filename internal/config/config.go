@@ -72,8 +72,8 @@ func Default() *Config {
 			Workers:   8,
 		},
 		Policy: Policy{
-			MinConfidenceJunk:  0.90,
-			MinConfidenceTopic: 0.70,
+			MinConfidenceJunk:  0.95,
+			MinConfidenceTopic: 0.85,
 		},
 		Labels: map[string]string{
 			"people":        "cleaner/people",

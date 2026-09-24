@@ -10,8 +10,8 @@ import (
 
 func defaultPolicy() config.Policy {
 	return config.Policy{
-		MinConfidenceJunk:  0.90,
-		MinConfidenceTopic: 0.70,
+		MinConfidenceJunk:  0.95,
+		MinConfidenceTopic: 0.85,
 	}
 }
 
@@ -55,7 +55,7 @@ func TestDecide(t *testing.T) {
 		wantReason string // substring that must appear in Reason; empty means no check
 	}{
 		{
-			name: "junk above threshold with topics above does NOT trash (banking-aware gate)",
+			name: "junk above threshold with topics above does NOT trash (margin gate)",
 			answers: laya.Answers{
 				"is_junk":        ans("A", 0.95),
 				"is_person":      ans("A", 0.99),
@@ -72,9 +72,9 @@ func TestDecide(t *testing.T) {
 			wantReason: "is_person",
 		},
 		{
-			name: "junk at threshold exactly 0.90 trash inclusive",
+			name: "junk at threshold exactly 0.95 trash inclusive",
 			answers: laya.Answers{
-				"is_junk": ans("A", 0.90),
+				"is_junk": ans("A", 0.95),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -84,9 +84,9 @@ func TestDecide(t *testing.T) {
 			wantReason: "is_junk",
 		},
 		{
-			name: "junk just below threshold 0.89 not trash",
+			name: "junk just below threshold 0.94 not trash",
 			answers: laya.Answers{
-				"is_junk": ans("A", 0.89),
+				"is_junk": ans("A", 0.94),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -98,7 +98,7 @@ func TestDecide(t *testing.T) {
 		{
 			name: "junk below threshold but topic above still labels",
 			answers: laya.Answers{
-				"is_junk":   ans("A", 0.89),
+				"is_junk":   ans("A", 0.94),
 				"is_person": ans("A", 0.85),
 			},
 			policy:     defaultPolicy(),
@@ -112,7 +112,7 @@ func TestDecide(t *testing.T) {
 			name: "junk choice B even high conf not trash",
 			answers: laya.Answers{
 				"is_junk":   ans("B", 0.99),
-				"is_person": ans("A", 0.80),
+				"is_person": ans("A", 0.85),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -124,7 +124,7 @@ func TestDecide(t *testing.T) {
 		{
 			name: "junk lowercase a at threshold trash case-insensitive",
 			answers: laya.Answers{
-				"is_junk": ans("a", 0.90),
+				"is_junk": ans("a", 0.95),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -148,7 +148,7 @@ func TestDecide(t *testing.T) {
 		{
 			name: "junk missing treated as no topics may still apply",
 			answers: laya.Answers{
-				"is_person": ans("A", 0.75),
+				"is_person": ans("A", 0.85),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -172,7 +172,7 @@ func TestDecide(t *testing.T) {
 		{
 			name: "is_person below threshold unclassified",
 			answers: laya.Answers{
-				"is_person": ans("A", 0.69),
+				"is_person": ans("A", 0.84),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -182,9 +182,9 @@ func TestDecide(t *testing.T) {
 			wantReason: "unclassified",
 		},
 		{
-			name: "is_person at exactly 0.70 inclusive",
+			name: "is_person at exactly 0.85 inclusive",
 			answers: laya.Answers{
-				"is_person": ans("A", 0.70),
+				"is_person": ans("A", 0.85),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -196,7 +196,7 @@ func TestDecide(t *testing.T) {
 		{
 			name: "needs_action above threshold alone",
 			answers: laya.Answers{
-				"needs_action": ans("A", 0.71),
+				"needs_action": ans("A", 0.85),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -220,7 +220,7 @@ func TestDecide(t *testing.T) {
 		{
 			name: "is_purchase above maps to accounts label",
 			answers: laya.Answers{
-				"is_purchase": ans("A", 0.80),
+				"is_purchase": ans("A", 0.85),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -232,7 +232,7 @@ func TestDecide(t *testing.T) {
 		{
 			name: "is_opportunity above threshold alone",
 			answers: laya.Answers{
-				"is_opportunity": ans("A", 0.75),
+				"is_opportunity": ans("A", 0.85),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -244,7 +244,7 @@ func TestDecide(t *testing.T) {
 		{
 			name: "is_security below threshold unclassified",
 			answers: laya.Answers{
-				"is_security": ans("A", 0.69),
+				"is_security": ans("A", 0.84),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -269,11 +269,11 @@ func TestDecide(t *testing.T) {
 		{
 			name: "all five topics above",
 			answers: laya.Answers{
-				"is_person":      ans("A", 0.80),
-				"needs_action":   ans("A", 0.80),
-				"is_security":    ans("A", 0.80),
-				"is_purchase":    ans("A", 0.80),
-				"is_opportunity": ans("A", 0.80),
+				"is_person":      ans("A", 0.85),
+				"needs_action":   ans("A", 0.85),
+				"is_security":    ans("A", 0.85),
+				"is_purchase":    ans("A", 0.85),
+				"is_opportunity": ans("A", 0.85),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -285,11 +285,11 @@ func TestDecide(t *testing.T) {
 		{
 			name: "all topics below threshold unclassified",
 			answers: laya.Answers{
-				"is_person":      ans("A", 0.69),
-				"needs_action":   ans("A", 0.69),
-				"is_security":    ans("A", 0.69),
-				"is_purchase":    ans("A", 0.69),
-				"is_opportunity": ans("A", 0.69),
+				"is_person":      ans("A", 0.84),
+				"needs_action":   ans("A", 0.84),
+				"is_security":    ans("A", 0.84),
+				"is_purchase":    ans("A", 0.84),
+				"is_opportunity": ans("A", 0.84),
 				"is_junk":        ans("B", 0.90),
 			},
 			policy:     defaultPolicy(),
@@ -408,7 +408,7 @@ func TestDecide(t *testing.T) {
 		{
 			name: "labels come from config not hardcoded custom people",
 			answers: laya.Answers{
-				"is_person": ans("A", 0.80),
+				"is_person": ans("A", 0.85),
 			},
 			policy: defaultPolicy(),
 			labels: map[string]string{
@@ -442,7 +442,7 @@ func TestDecide(t *testing.T) {
 		{
 			name: "nil labels map falls back to defaults",
 			answers: laya.Answers{
-				"is_person": ans("A", 0.80),
+				"is_person": ans("A", 0.85),
 			},
 			policy:     defaultPolicy(),
 			labels:     nil,
@@ -454,7 +454,7 @@ func TestDecide(t *testing.T) {
 		{
 			name: "missing label key falls back to default",
 			answers: laya.Answers{
-				"is_purchase": ans("A", 0.80),
+				"is_purchase": ans("A", 0.85),
 			},
 			policy: defaultPolicy(),
 			labels: map[string]string{
@@ -470,7 +470,7 @@ func TestDecide(t *testing.T) {
 			name: "junk with whitespace and lowercase b not trash",
 			answers: laya.Answers{
 				"is_junk":   ans(" b ", 0.99),
-				"is_person": ans("A", 0.71),
+				"is_person": ans("A", 0.85),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -494,9 +494,9 @@ func TestDecide(t *testing.T) {
 		{
 			name: "deterministic order people before action despite map iteration",
 			answers: laya.Answers{
-				"needs_action": ans("A", 0.75),
-				"is_person":    ans("A", 0.75),
-				"is_security":  ans("A", 0.75),
+				"needs_action": ans("A", 0.85),
+				"is_person":    ans("A", 0.85),
+				"is_security":  ans("A", 0.85),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -520,7 +520,7 @@ func TestDecide(t *testing.T) {
 		{
 			name: "is_banking below threshold unclassified",
 			answers: laya.Answers{
-				"is_banking": ans("A", 0.69),
+				"is_banking": ans("A", 0.84),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -530,9 +530,9 @@ func TestDecide(t *testing.T) {
 			wantReason: "unclassified",
 		},
 		{
-			name: "is_banking at exactly 0.70 inclusive",
+			name: "is_banking at exactly 0.85 inclusive",
 			answers: laya.Answers{
-				"is_banking": ans("A", 0.70),
+				"is_banking": ans("A", 0.85),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -584,7 +584,7 @@ func TestDecide(t *testing.T) {
 			name: "junk 1.00 with banking below threshold still trash",
 			answers: laya.Answers{
 				"is_junk":    ans("A", 1.00),
-				"is_banking": ans("A", 0.69),
+				"is_banking": ans("A", 0.84),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -596,12 +596,12 @@ func TestDecide(t *testing.T) {
 		{
 			name: "all six topics above including banking",
 			answers: laya.Answers{
-				"is_person":      ans("A", 0.80),
-				"needs_action":   ans("A", 0.80),
-				"is_security":    ans("A", 0.80),
-				"is_purchase":    ans("A", 0.80),
-				"is_opportunity": ans("A", 0.80),
-				"is_banking":     ans("A", 0.80),
+				"is_person":      ans("A", 0.85),
+				"needs_action":   ans("A", 0.85),
+				"is_security":    ans("A", 0.85),
+				"is_purchase":    ans("A", 0.85),
+				"is_opportunity": ans("A", 0.85),
+				"is_banking":     ans("A", 0.85),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -611,15 +611,15 @@ func TestDecide(t *testing.T) {
 			wantReason: "is_person",
 		},
 		{
-			name: "junk 1.00 with all six topics 0.80 not trash but six labels",
+			name: "junk 1.00 with all six topics 0.90 not trash but six labels",
 			answers: laya.Answers{
 				"is_junk":        ans("A", 1.00),
-				"is_person":      ans("A", 0.80),
-				"needs_action":   ans("A", 0.80),
-				"is_security":    ans("A", 0.80),
-				"is_purchase":    ans("A", 0.80),
-				"is_opportunity": ans("A", 0.80),
-				"is_banking":     ans("A", 0.80),
+				"is_person":      ans("A", 0.90),
+				"needs_action":   ans("A", 0.90),
+				"is_security":    ans("A", 0.90),
+				"is_purchase":    ans("A", 0.90),
+				"is_opportunity": ans("A", 0.90),
+				"is_banking":     ans("A", 0.90),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -631,7 +631,7 @@ func TestDecide(t *testing.T) {
 		{
 			name: "banking custom label from config",
 			answers: laya.Answers{
-				"is_banking": ans("A", 0.80),
+				"is_banking": ans("A", 0.85),
 			},
 			policy: defaultPolicy(),
 			labels: map[string]string{
@@ -651,11 +651,11 @@ func TestDecide(t *testing.T) {
 		{
 			name: "banking deterministic order last",
 			answers: laya.Answers{
-				"is_banking":   ans("A", 0.80),
-				"is_person":    ans("A", 0.80),
-				"is_purchase":  ans("A", 0.80),
-				"is_security":  ans("A", 0.80),
-				"needs_action": ans("A", 0.80),
+				"is_banking":   ans("A", 0.85),
+				"is_person":    ans("A", 0.85),
+				"is_purchase":  ans("A", 0.85),
+				"is_security":  ans("A", 0.85),
+				"needs_action": ans("A", 0.85),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -667,7 +667,7 @@ func TestDecide(t *testing.T) {
 		{
 			name: "is_banking choice case-insensitive and whitespace",
 			answers: laya.Answers{
-				"is_banking": ans(" a ", 0.80),
+				"is_banking": ans(" a ", 0.85),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -675,6 +675,135 @@ func TestDecide(t *testing.T) {
 			wantTrash:  false,
 			wantLabels: []string{"cleaner/banking"},
 			wantReason: "is_banking",
+		},
+		// Margin-gate specific cases (new thresholds 0.95/0.85 + 0.15 margin)
+		{
+			name: "margin: junk 1.00 vs banking 0.90 not trash (1.00 > 0.90+0.15 false)",
+			answers: laya.Answers{
+				"is_junk":    ans("A", 1.00),
+				"is_banking": ans("A", 0.90),
+			},
+			policy:     defaultPolicy(),
+			labels:     defaultLabels(),
+			wantKind:   KindLabel,
+			wantTrash:  false,
+			wantLabels: []string{"cleaner/banking"},
+			wantReason: "is_banking",
+		},
+		{
+			name: "margin: junk 1.00 with max topic 0.84 below threshold still trash",
+			answers: laya.Answers{
+				"is_junk":    ans("A", 1.00),
+				"is_banking": ans("A", 0.84),
+			},
+			policy:     defaultPolicy(),
+			labels:     defaultLabels(),
+			wantKind:   KindTrash,
+			wantTrash:  true,
+			wantLabels: nil,
+			wantReason: "is_junk",
+		},
+		{
+			name: "margin: junk 0.96 vs topic 0.85 not trash (0.96 > 1.00 false)",
+			answers: laya.Answers{
+				"is_junk":   ans("A", 0.96),
+				"is_person": ans("A", 0.85),
+			},
+			policy:     defaultPolicy(),
+			labels:     defaultLabels(),
+			wantKind:   KindLabel,
+			wantTrash:  false,
+			wantLabels: []string{"cleaner/people"},
+			wantReason: "is_person",
+		},
+		{
+			name: "margin: junk with topic just at threshold not trash",
+			answers: laya.Answers{
+				"is_junk":     ans("A", 1.00),
+				"is_person":   ans("A", 0.85),
+				"is_purchase": ans("A", 0.86),
+			},
+			policy:     defaultPolicy(),
+			labels:     defaultLabels(),
+			wantKind:   KindLabel,
+			wantTrash:  false,
+			wantLabels: []string{"cleaner/people", "cleaner/accounts"},
+			wantReason: "is_person",
+		},
+		{
+			name: "margin: custom low topic threshold allows junk to win when clearly above",
+			answers: laya.Answers{
+				"is_junk":   ans("A", 1.00),
+				"is_person": ans("A", 0.70),
+			},
+			policy: config.Policy{
+				MinConfidenceJunk:  0.95,
+				MinConfidenceTopic: 0.70,
+			},
+			labels:     defaultLabels(),
+			wantKind:   KindTrash,
+			wantTrash:  true,
+			wantLabels: nil,
+			wantReason: "is_junk",
+		},
+		{
+			name: "margin: custom low threshold but junk not enough above max",
+			answers: laya.Answers{
+				"is_junk":   ans("A", 0.95),
+				"is_person": ans("A", 0.90),
+			},
+			policy: config.Policy{
+				MinConfidenceJunk:  0.95,
+				MinConfidenceTopic: 0.70,
+			},
+			labels:     defaultLabels(),
+			wantKind:   KindLabel,
+			wantTrash:  false,
+			wantLabels: []string{"cleaner/people"},
+			wantReason: "is_person",
+		},
+		{
+			name: "margin: picks max confidence among topics",
+			answers: laya.Answers{
+				"is_junk":     ans("A", 1.00),
+				"is_person":   ans("A", 0.86),
+				"is_purchase": ans("A", 0.95),
+				"is_banking":  ans("A", 0.88),
+			},
+			policy:     defaultPolicy(),
+			labels:     defaultLabels(),
+			wantKind:   KindLabel,
+			wantTrash:  false,
+			wantLabels: []string{"cleaner/people", "cleaner/accounts", "cleaner/banking"},
+			wantReason: "is_person",
+		},
+		{
+			name: "margin: ignores topics below threshold when computing max",
+			answers: laya.Answers{
+				"is_junk":    ans("A", 1.00),
+				"is_person":  ans("A", 0.84),
+				"is_banking": ans("A", 0.95),
+			},
+			policy:     defaultPolicy(),
+			labels:     defaultLabels(),
+			wantKind:   KindLabel,
+			wantTrash:  false,
+			wantLabels: []string{"cleaner/banking"},
+			wantReason: "is_banking",
+		},
+		{
+			name: "margin: ignores B choices when computing max",
+			answers: laya.Answers{
+				"is_junk":    ans("A", 0.99),
+				"is_person":  ans("B", 0.99),
+				"is_banking": ans("B", 0.99),
+			},
+			policy:     defaultPolicy(),
+			labels:     defaultLabels(),
+			wantKind:   KindTrash,
+			wantTrash:  true,
+			wantLabels: nil,
+			wantReason: "is_junk",
 		},
 	}
 
@@ -746,7 +875,7 @@ func TestSummarize(t *testing.T) {
 	if s := Summarize(a); !strings.Contains(s, "TRASH") {
 		t.Errorf("Summarize trash = %q, want TRASH", s)
 	}
-	b := Decide(laya.Answers{"is_person": ans("A", 0.80)}, defaultPolicy(), defaultLabels())
+	b := Decide(laya.Answers{"is_person": ans("A", 0.85)}, defaultPolicy(), defaultLabels())
 	if s := Summarize(b); !strings.Contains(s, "LABEL") {
 		t.Errorf("Summarize label = %q, want LABEL", s)
 	}
