@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
+	"emailcleaner/internal/act"
 	"emailcleaner/internal/config"
 	"emailcleaner/internal/gmail"
+	"emailcleaner/internal/laya"
 )
 
 const (
@@ -35,6 +38,11 @@ type app struct {
 	authorize  func(context.Context, *config.Config) error
 	checkToken func(context.Context, *config.Config) error
 	openGmail  func(context.Context, *config.Config) (gmailAccess, error)
+	openLaya   func(context.Context, *config.Config) (layaPredictor, error)
+	newApplier func(extendedGmailAccess) applier
+	stdin      io.Reader
+	clock      clockFunc
+	sleep      func(time.Duration)
 }
 
 func main() {
@@ -42,11 +50,34 @@ func main() {
 		configPath: "config.yaml",
 		stdout:     os.Stdout,
 		stderr:     os.Stderr,
+		stdin:      os.Stdin,
+		clock:      time.Now,
+		sleep:      time.Sleep,
 		checkToken: checkToken,
 		openGmail:  newGmailAccess,
+		openLaya:   newLayaClient,
+		newApplier: newRealApplier,
 	}
 	a.authorize = a.interactiveAuthorize // method value; see ruling R8
 	os.Exit(a.run(os.Args[1:]))
+}
+
+func newLayaClient(_ context.Context, cfg *config.Config) (layaPredictor, error) {
+	return laya.New(cfg.Laya), nil
+}
+
+func newRealApplier(g extendedGmailAccess) applier {
+	return &act.GmailApplier{
+		Modifier: func(ctx context.Context, id string, add, remove []string) error {
+			return g.Modify(ctx, id, add, remove)
+		},
+		Batcher: func(ctx context.Context, ids []string, add, remove []string) error {
+			return g.BatchModify(ctx, ids, add, remove)
+		},
+		Untrasher: func(ctx context.Context, id string) error {
+			return g.Untrash(ctx, id)
+		},
+	}
 }
 
 func (a *app) run(args []string) int {
@@ -63,6 +94,10 @@ func (a *app) run(args []string) int {
 		return a.setup(rest)
 	case "list":
 		return a.list(rest)
+	case "run":
+		return a.runCmd(rest)
+	case "rollback":
+		return a.rollbackCmd(rest)
 	case "help", "-h", "--help":
 		a.usage(a.stderr)
 		return exitOK
@@ -80,6 +115,8 @@ Commands:
   status   Report token health and the current label set.
   setup    Authorize with Gmail and create any missing labels. Idempotent.
   list     Print the headers of unprocessed inbox messages.
+  run      Classify and act on unprocessed messages.
+  rollback Undo a run (default: latest).
 
 Flags are per command; run "emailcleaner <command> -h" for details.
 `)

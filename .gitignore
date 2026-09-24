@@ -6,7 +6,7 @@ token.json
 config.yaml
 
 # Audit logs — contain message subjects and sender addresses
-audit/
+/audit/
 
 # Build output (anchored: unanchored "emailcleaner" also matched cmd/emailcleaner/)
 /emailcleaner
