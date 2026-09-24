@@ -30,13 +30,11 @@ func testState() extract.State {
 func okResponse() map[string]any {
 	return map[string]any{
 		"answers": map[string]any{
-			"is_junk":        map[string]any{"choice": "B", "confidence": 0.97},
-			"is_person":      map[string]any{"choice": "A", "confidence": 0.82},
-			"needs_action":   map[string]any{"choice": "A", "confidence": 0.71},
-			"is_security":    map[string]any{"choice": "B", "confidence": 0.99},
-			"is_purchase":    map[string]any{"choice": "A", "confidence": 0.88},
-			"is_opportunity": map[string]any{"choice": "B", "confidence": 0.76},
-			"is_banking":     map[string]any{"choice": "B", "confidence": 0.93},
+			"is_junk":     map[string]any{"choice": "B", "confidence": 0.97},
+			"is_person":   map[string]any{"choice": "A", "confidence": 0.82},
+			"is_security": map[string]any{"choice": "B", "confidence": 0.99},
+			"is_purchase": map[string]any{"choice": "A", "confidence": 0.88},
+			"is_banking":  map[string]any{"choice": "B", "confidence": 0.93},
 		},
 		"routing": map[string]any{"model": "multilingual"},
 		"model":   "multilingual",
@@ -55,7 +53,7 @@ func newTestClient(t *testing.T, handler http.Handler) *Client {
 	return New(cfg)
 }
 
-func TestPredict_Success_AllSixAnswers(t *testing.T) {
+func TestPredict_Success_AllFiveAnswers(t *testing.T) {
 	var gotState extract.State
 	var gotQuestions Questions
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -89,10 +87,10 @@ func TestPredict_Success_AllSixAnswers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Predict error: %v", err)
 	}
-	if len(ans) != 7 {
-		t.Fatalf("answers len = %d, want 7", len(ans))
+	if len(ans) != 5 {
+		t.Fatalf("answers len = %d, want 5", len(ans))
 	}
-	for _, key := range []string{"is_junk", "is_person", "needs_action", "is_security", "is_purchase", "is_opportunity", "is_banking"} {
+	for _, key := range []string{"is_junk", "is_person", "is_banking", "is_purchase", "is_security"} {
 		a, ok := ans[key]
 		if !ok {
 			t.Errorf("missing answer %q", key)
@@ -109,8 +107,8 @@ func TestPredict_Success_AllSixAnswers(t *testing.T) {
 	if gotState.Subject != "Invoice #4411" {
 		t.Errorf("forwarded state subject = %q, want %q", gotState.Subject, "Invoice #4411")
 	}
-	if len(gotQuestions) != 7 {
-		t.Errorf("forwarded questions len = %d, want 7", len(gotQuestions))
+	if len(gotQuestions) != 5 {
+		t.Errorf("forwarded questions len = %d, want 5", len(gotQuestions))
 	}
 	if _, ok := gotQuestions["is_junk"]; !ok {
 		t.Error("forwarded questions missing is_junk")
@@ -277,12 +275,11 @@ func TestPredict_ConfidenceParsing(t *testing.T) {
 		// Use distinct confidences to verify parsing is not truncated.
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"answers": map[string]any{
-				"is_junk":        map[string]any{"choice": "A", "confidence": 0.123456},
-				"is_person":      map[string]any{"choice": "B", "confidence": 0.999},
-				"needs_action":   map[string]any{"choice": "A", "confidence": 0.0},
-				"is_security":    map[string]any{"choice": "B", "confidence": 1.0},
-				"is_purchase":    map[string]any{"choice": "B", "confidence": 0.5},
-				"is_opportunity": map[string]any{"choice": "A", "confidence": 0.70001},
+				"is_junk":     map[string]any{"choice": "A", "confidence": 0.123456},
+				"is_person":   map[string]any{"choice": "B", "confidence": 0.999},
+				"is_banking":  map[string]any{"choice": "A", "confidence": 0.0},
+				"is_security": map[string]any{"choice": "B", "confidence": 1.0},
+				"is_purchase": map[string]any{"choice": "B", "confidence": 0.5},
 			},
 		})
 	}))
@@ -295,12 +292,11 @@ func TestPredict_ConfidenceParsing(t *testing.T) {
 		t.Fatalf("Predict error: %v", err)
 	}
 	tests := map[string]float64{
-		"is_junk":        0.123456,
-		"is_person":      0.999,
-		"needs_action":   0.0,
-		"is_security":    1.0,
-		"is_purchase":    0.5,
-		"is_opportunity": 0.70001,
+		"is_junk":     0.123456,
+		"is_person":   0.999,
+		"is_banking":  0.0,
+		"is_security": 1.0,
+		"is_purchase": 0.5,
 	}
 	for k, want := range tests {
 		got := ans[k].Confidence
@@ -472,10 +468,10 @@ func TestPing_WithAPIKey(t *testing.T) {
 }
 
 func TestDefaultQuestions_Complete(t *testing.T) {
-	if len(DefaultQuestions) != 7 {
-		t.Fatalf("DefaultQuestions len = %d, want 7", len(DefaultQuestions))
+	if len(DefaultQuestions) != 5 {
+		t.Fatalf("DefaultQuestions len = %d, want 5", len(DefaultQuestions))
 	}
-	for _, key := range []string{"is_junk", "is_person", "needs_action", "is_security", "is_purchase", "is_opportunity", "is_banking"} {
+	for _, key := range []string{"is_junk", "is_person", "is_banking", "is_purchase", "is_security"} {
 		q, ok := DefaultQuestions[key]
 		if !ok {
 			t.Errorf("missing question %q", key)
@@ -497,32 +493,43 @@ func TestDefaultQuestions_Complete(t *testing.T) {
 			t.Errorf("question %q instructions empty", key)
 		}
 	}
-	// Verify descriptive format: is_junk uses "Which best describes" and new criteria.
-	if q := DefaultQuestions["is_junk"]; q.Criteria["A"] != "unwanted bulk or marketing email" {
-		t.Errorf("is_junk criteria A = %q, want %q", q.Criteria["A"], "unwanted bulk or marketing email")
+	// Verify collapsed 5-question criteria exactly as specified.
+	if q := DefaultQuestions["is_junk"]; q.Criteria["A"] != "unwanted bulk or marketing" {
+		t.Errorf("is_junk criteria A = %q, want %q", q.Criteria["A"], "unwanted bulk or marketing")
 	}
-	if q := DefaultQuestions["is_junk"]; q.Criteria["B"] != "personal or transactional email" {
-		t.Errorf("is_junk criteria B = %q, want %q", q.Criteria["B"], "personal or transactional email")
+	if q := DefaultQuestions["is_junk"]; q.Criteria["B"] != "personal or transactional" {
+		t.Errorf("is_junk criteria B = %q, want %q", q.Criteria["B"], "personal or transactional")
 	}
-	if q := DefaultQuestions["is_junk"]; !strings.Contains(q.Instructions, "Which best describes this email?") {
-		t.Errorf("is_junk instructions missing descriptive prefix, got %q", q.Instructions)
+	if q := DefaultQuestions["is_junk"]; !strings.Contains(q.Instructions, "Which best describes") {
+		t.Errorf("is_junk instructions missing 'Which best describes', got %q", q.Instructions)
 	}
-	if q := DefaultQuestions["is_junk"]; !strings.Contains(q.Instructions, "When unsure choose B.") {
-		t.Errorf("is_junk instructions missing 'When unsure choose B.', got %q", q.Instructions)
+	if q := DefaultQuestions["is_person"]; q.Criteria["A"] != "real person direct" {
+		t.Errorf("is_person criteria A = %q, want %q", q.Criteria["A"], "real person direct")
 	}
-	// Verify is_banking criteria values exactly as specified (unchanged).
-	if q := DefaultQuestions["is_banking"]; q.Criteria["A"] != "yes, bank/fintech transaction notification" {
-		t.Errorf("is_banking criteria A = %q, want %q", q.Criteria["A"], "yes, bank/fintech transaction notification")
+	if q := DefaultQuestions["is_person"]; q.Criteria["B"] != "automated or bulk" {
+		t.Errorf("is_person criteria B = %q, want %q", q.Criteria["B"], "automated or bulk")
 	}
-	if q := DefaultQuestions["is_banking"]; q.Criteria["B"] != "no, not a banking notification" {
-		t.Errorf("is_banking criteria B = %q, want %q", q.Criteria["B"], "no, not a banking notification")
+	if q := DefaultQuestions["is_banking"]; q.Criteria["A"] != "bank transaction notification" {
+		t.Errorf("is_banking criteria A = %q, want %q", q.Criteria["A"], "bank transaction notification")
+	}
+	if q := DefaultQuestions["is_banking"]; q.Criteria["B"] != "not bank related" {
+		t.Errorf("is_banking criteria B = %q, want %q", q.Criteria["B"], "not bank related")
+	}
+	if q := DefaultQuestions["is_purchase"]; q.Criteria["A"] != "purchase/order/receipt/delivery" {
+		t.Errorf("is_purchase criteria A = %q, want %q", q.Criteria["A"], "purchase/order/receipt/delivery")
+	}
+	if q := DefaultQuestions["is_purchase"]; q.Criteria["B"] != "not purchase" {
+		t.Errorf("is_purchase criteria B = %q, want %q", q.Criteria["B"], "not purchase")
+	}
+	if q := DefaultQuestions["is_security"]; q.Criteria["A"] != "account or security event" {
+		t.Errorf("is_security criteria A = %q, want %q", q.Criteria["A"], "account or security event")
+	}
+	if q := DefaultQuestions["is_security"]; q.Criteria["B"] != "not security" {
+		t.Errorf("is_security criteria B = %q, want %q", q.Criteria["B"], "not security")
 	}
 	// Descriptive instructions checks.
 	if q := DefaultQuestions["is_person"]; !strings.Contains(q.Instructions, "Who is the sender?") {
 		t.Errorf("is_person instructions missing 'Who is the sender?', got %q", q.Instructions)
-	}
-	if q := DefaultQuestions["needs_action"]; !strings.Contains(q.Instructions, "What does the email ask the recipient to do?") {
-		t.Errorf("needs_action instructions missing descriptive prefix, got %q", q.Instructions)
 	}
 	if q := DefaultQuestions["is_security"]; !strings.Contains(q.Instructions, "What is the email about?") {
 		t.Errorf("is_security instructions missing 'What is the email about?', got %q", q.Instructions)
@@ -530,13 +537,13 @@ func TestDefaultQuestions_Complete(t *testing.T) {
 	if q := DefaultQuestions["is_purchase"]; !strings.Contains(q.Instructions, "What is the email about?") {
 		t.Errorf("is_purchase instructions missing 'What is the email about?', got %q", q.Instructions)
 	}
-	if q := DefaultQuestions["is_opportunity"]; !strings.Contains(q.Instructions, "What is the email about?") {
-		t.Errorf("is_opportunity instructions missing 'What is the email about?', got %q", q.Instructions)
-	}
 	if q := DefaultQuestions["is_banking"]; !strings.Contains(q.Instructions, "What is the email about?") {
 		t.Errorf("is_banking instructions missing 'What is the email about?', got %q", q.Instructions)
 	}
 	if q := DefaultQuestions["is_banking"]; !strings.Contains(q.Instructions, "bank or fintech transaction") {
 		t.Errorf("is_banking instructions missing 'bank or fintech transaction', got %q", q.Instructions)
+	}
+	if q := DefaultQuestions["is_junk"]; !strings.Contains(q.Instructions, "Which best describes this email?") {
+		t.Errorf("is_junk instructions missing 'Which best describes this email?', got %q", q.Instructions)
 	}
 }

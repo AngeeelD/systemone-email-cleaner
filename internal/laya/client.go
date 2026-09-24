@@ -37,65 +37,51 @@ type Question struct {
 // Questions maps question name to its definition.
 type Questions map[string]Question
 
-// DefaultQuestions is the seven-question descriptive taxonomy. Each question is a
-// 2-option choice with neutral keys A/B. Instructions are descriptive ("which
-// best describes... / what is the email about") rather than decision-oriented
-// ("should recipient...") to reduce overconfidence.
+// DefaultQuestions is the collapsed five-question descriptive taxonomy. Each
+// question is a 2-option choice with neutral keys A/B. Instructions are
+// descriptive ("which best describes... / who is the sender / what is the
+// email about") rather than decision-oriented to reduce overconfidence.
+// Collapsed from 7 to 5 by removing the noisiest binaries (needs_action and
+// is_opportunity) which caused 0.98-1.00 false positives on marketing.
 var DefaultQuestions = Questions{
 	"is_junk": {
 		Type:         "choice",
-		Instructions: "Which best describes this email? Count as junk: marketing and promotions, newsletters, mass automated notifications, spam. Not junk: personal messages, transaction receipts, account alerts, bank notifications. When unsure choose B.",
+		Instructions: "Which best describes this email? A) Unwanted bulk, marketing, promo, newsletter blast not addressed to you personally. B) Expected personal or transactional message.",
 		Criteria: map[string]string{
-			"A": "unwanted bulk or marketing email",
-			"B": "personal or transactional email",
+			"A": "unwanted bulk or marketing",
+			"B": "personal or transactional",
 		},
 	},
 	"is_person": {
 		Type:         "choice",
-		Instructions: "Who is the sender? A) A single real person writing directly to the recipient B) An automated system, noreply address, or bulk sender",
+		Instructions: "Who is the sender? A) A single real person writing directly to you. B) An automated system, noreply, or bulk sender.",
 		Criteria: map[string]string{
-			"A": "yes, written by a real person",
-			"B": "no, automated or bulk",
-		},
-	},
-	"needs_action": {
-		Type:         "choice",
-		Instructions: "What does the email ask the recipient to do? A) It requests a specific reply or action (pay, sign, answer a question, meet a deadline) B) It is informational only",
-		Criteria: map[string]string{
-			"A": "yes, the recipient must act or reply",
-			"B": "no action is required",
-		},
-	},
-	"is_security": {
-		Type:         "choice",
-		Instructions: "What is the email about? A) An account or security event (sign-in alert, password change, 2FA code, banking transaction alert, suspicious activity) B) Not about security",
-		Criteria: map[string]string{
-			"A": "yes, account or security notice",
-			"B": "no, not a security notice",
-		},
-	},
-	"is_purchase": {
-		Type:         "choice",
-		Instructions: "What is the email about? A) A purchase, order, receipt, invoice, shipping, delivery, reservation or subscription B) Not about a purchase/delivery",
-		Criteria: map[string]string{
-			"A": "yes, purchase, receipt or delivery",
-			"B": "no, not about a purchase",
-		},
-	},
-	"is_opportunity": {
-		Type:         "choice",
-		Instructions: "What is the email about? A) A specific professional opportunity (recruiter, job offer, freelance, collaboration) B) Not an opportunity or mass job digest",
-		Criteria: map[string]string{
-			"A": "yes, a professional opportunity",
-			"B": "no, not an opportunity",
+			"A": "real person direct",
+			"B": "automated or bulk",
 		},
 	},
 	"is_banking": {
 		Type:         "choice",
-		Instructions: "What is the email about? A) A specific bank or fintech transaction (deposit, withdrawal, transfer, card charge, balance, statement, recipient registration) B) Not about a bank transaction",
+		Instructions: "What is the email about? A) A specific bank or fintech transaction: deposit, withdrawal, transfer, card charge, balance, statement, recipient registration. B) Not about a bank transaction.",
 		Criteria: map[string]string{
-			"A": "yes, bank/fintech transaction notification",
-			"B": "no, not a banking notification",
+			"A": "bank transaction notification",
+			"B": "not bank related",
+		},
+	},
+	"is_purchase": {
+		Type:         "choice",
+		Instructions: "What is the email about? A) A purchase, order, receipt, invoice, shipping, delivery, reservation, ticket. B) Not about purchase/delivery.",
+		Criteria: map[string]string{
+			"A": "purchase/order/receipt/delivery",
+			"B": "not purchase",
+		},
+	},
+	"is_security": {
+		Type:         "choice",
+		Instructions: "What is the email about? A) An account or security event: sign-in alert, password change, 2FA code, banking alert, suspicious activity. B) Not security.",
+		Criteria: map[string]string{
+			"A": "account or security event",
+			"B": "not security",
 		},
 	},
 }

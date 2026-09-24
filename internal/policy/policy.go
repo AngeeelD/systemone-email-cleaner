@@ -42,26 +42,29 @@ type topicDef struct {
 
 // topicOrder is the deterministic order in which topics are evaluated and
 // reported. Changing the order would change the audit reason string and the
-// label slice order, so it is intentionally fixed and matches the spec table.
+// label slice order, so it is intentionally fixed. Collapsed to 4 topics
+// (is_person, is_banking, is_purchase, is_security) plus is_junk handled
+// separately in the margin gate — total 5 questions. Removed needs_action
+// and is_opportunity which caused 0.98-1.00 false positives on marketing.
 var topicOrder = []topicDef{
 	{Question: "is_person", LabelKey: "people", DefaultLabel: "cleaner/people"},
-	{Question: "needs_action", LabelKey: "action", DefaultLabel: "cleaner/action"},
-	{Question: "is_security", LabelKey: "security", DefaultLabel: "cleaner/security"},
-	{Question: "is_purchase", LabelKey: "accounts", DefaultLabel: "cleaner/accounts"},
-	{Question: "is_opportunity", LabelKey: "opportunities", DefaultLabel: "cleaner/opportunities"},
 	{Question: "is_banking", LabelKey: "banking", DefaultLabel: "cleaner/banking"},
+	{Question: "is_purchase", LabelKey: "accounts", DefaultLabel: "cleaner/accounts"},
+	{Question: "is_security", LabelKey: "security", DefaultLabel: "cleaner/security"},
 }
 
 // Decide applies the four-step policy from the spec in order:
 //
 //  1. is_junk == A and confidence >= min_confidence_junk → Trash ONLY if
-//     is_junk confidence exceeds the highest topic confidence (among topics
-//     where choice is A and conf >= min_confidence_topic) by more than 0.15.
-//     If no topic clears its threshold, junk wins immediately. This margin
-//     gate counters overconfidence (e.g. is_junk 1.00 alongside banking 0.90)
-//     where the previous "no topic >= threshold" gate was too permissive.
+//     is_junk confidence exceeds the highest topic confidence (among the 4
+//     topics is_person/is_banking/is_purchase/is_security where choice is A
+//     and conf >= min_confidence_topic) by more than 0.15. If no topic clears
+//     its threshold, junk wins immediately. This margin gate counters
+//     overconfidence (e.g. is_junk 1.00 alongside banking 0.90) where the
+//     previous "no topic >= threshold" gate was too permissive.
 //  2. For each topic answered A with confidence >= min_confidence_topic → add its label.
-//     Includes is_banking → cleaner/banking.
+//     is_person → cleaner/people, is_banking → cleaner/banking,
+//     is_purchase → cleaner/accounts, is_security → cleaner/security.
 //  3. Not junk and no topic cleared threshold → cleaner/unclassified.
 //  4. INBOX is never removed except when Trash (ShouldTrash).
 //

@@ -119,22 +119,20 @@ func newRunApp(t *testing.T, gmailClient *fakeRunGmail, layaClient *fakeLaya, fa
 
 func sampleAnswersForLabel() laya.Answers {
 	return laya.Answers{
-		"is_junk":        {Choice: "B", Confidence: 0.97},
-		"is_person":      {Choice: "A", Confidence: 0.90},
-		"needs_action":   {Choice: "B", Confidence: 0.99},
-		"is_security":    {Choice: "B", Confidence: 0.99},
-		"is_purchase":    {Choice: "B", Confidence: 0.99},
-		"is_opportunity": {Choice: "B", Confidence: 0.99},
+		"is_junk":     {Choice: "B", Confidence: 0.97},
+		"is_person":   {Choice: "A", Confidence: 0.90},
+		"is_security": {Choice: "B", Confidence: 0.99},
+		"is_purchase": {Choice: "B", Confidence: 0.99},
+		"is_banking":  {Choice: "B", Confidence: 0.99},
 	}
 }
 func sampleAnswersForTrash() laya.Answers {
 	return laya.Answers{
-		"is_junk":        {Choice: "A", Confidence: 0.95},
-		"is_person":      {Choice: "B", Confidence: 0.99},
-		"needs_action":   {Choice: "B", Confidence: 0.99},
-		"is_security":    {Choice: "B", Confidence: 0.99},
-		"is_purchase":    {Choice: "B", Confidence: 0.99},
-		"is_opportunity": {Choice: "B", Confidence: 0.99},
+		"is_junk":     {Choice: "A", Confidence: 0.95},
+		"is_person":   {Choice: "B", Confidence: 0.99},
+		"is_security": {Choice: "B", Confidence: 0.99},
+		"is_purchase": {Choice: "B", Confidence: 0.99},
+		"is_banking":  {Choice: "B", Confidence: 0.99},
 	}
 }
 
