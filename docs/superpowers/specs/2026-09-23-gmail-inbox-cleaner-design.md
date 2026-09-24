@@ -55,8 +55,8 @@ that can lose a message.
 cmd/emailcleaner/       CLI: flags, wiring, exit codes
 internal/gmail/         OAuth2 + Gmail API: List, Get, BatchModify, label setup
 internal/extract/       Message -> State (HTML strip, quote/signature trim, budget)
-internal/laya/          HTTP client for laya-serve + question/answer types
-internal/policy/        Laya answers -> Action   (PURE: no network, no I/O)
+internal/systemone/          HTTP client for System One server + question/answer types
+internal/policy/        System One answers -> Action   (PURE: no network, no I/O)
 internal/act/           Applies actions to Gmail + writes audit.jsonl
 internal/audit/         audit.jsonl: append, replay, rollback
 internal/config/        YAML config loading and defaults
@@ -67,7 +67,7 @@ internal/config/        YAML config loading and defaults
 1. `gmail.List` → message IDs matching `in:inbox -label:cleaner/*`, paged at 500.
 2. Worker pool → `gmail.Get` (`format=full`, which returns headers *and* body).
 3. `extract.State(msg)` → JSON sized to the model's token budget.
-4. `laya.Predict(ctx, state, questions)` → `POST /v1/systemone`.
+4. `systemone.Predict(ctx, state, questions)` → `POST /v1/systemone`.
 5. `policy.Decide(answers, msg)` → typed `Action` (`Label` / `Trash` / `Skip`) + reason.
 6. `act.Apply` → `batchModify` labels, then append the audit record.
 
@@ -101,7 +101,7 @@ headers and body. Amortized `batchModify` adds ~0.05 units per message.
 > 10,000 emails × ~20.05 units ≈ 200,500 units ≈ **~33 minutes minimum**
 > at 6,000 units/minute.
 
-The bottleneck is **Gmail quota, not Laya.** Laya answers every question for a
+The bottleneck is **Gmail quota, not Laya.** System One answers every question for a
 message in a single forward pass (~33–72 ms) and sustains 103–332 questions/sec
 batched on a T4. Therefore:
 
@@ -116,7 +116,7 @@ batched on a T4. Therefore:
 
 | Fact | Source | Consequence |
 |---|---|---|
-| `laya-serve` exposes `POST /v1/systemone`, the Jev-compatible contract | model card | No inference layer to build; Go only needs an HTTP client |
+| `System One server` exposes `POST /v1/systemone`, the Jev-compatible contract | model card | No inference layer to build; Go only needs an HTTP client |
 | Every question in a call is answered in one forward pass | model card | 6 questions per email cost one round trip |
 | `noul` can follow its own labels (`false:` / `true:`) instead of the state | issue #156 | **`noul` is not used at all** |
 | Ordinal `score` is the weakest primitive (SST-5 0.372) | model card | Urgency scoring is out of scope |
@@ -132,14 +132,14 @@ Run on the dedicated machine:
 
 ```bash
 pip install "laya[serve]"
-LAYA_DEVICE=cuda LAYA_PRELOAD=1 laya-serve    # 0.0.0.0:8000
+LAYA_DEVICE=cuda LAYA_PRELOAD=1 System One server    # 0.0.0.0:8000
 ```
 
 `LAYA_PRELOAD=1` keeps both the English and multilingual checkpoints resident so
 the router switches on language detection only (<1 ms) instead of reloading
 (7–10 s per switch). Set `LAYA_API_KEY` to require
 `Authorization: Bearer <key>`; the Go client reads the key from the environment
-(`laya.api_key_env`), never from the config file.
+(`systemone.api_key_env`), never from the config file.
 
 ### State schema
 
@@ -317,9 +317,9 @@ changes.
 gmail:
   credentials_file: client_secret.json
   token_file: token.json
-laya:
+systemone:
   endpoint: http://127.0.0.1:8000
-  api_key_env: LAYA_API_KEY
+  api_key_env: SYSTEMONE_API_KEY
   timeout: 30s
   workers: 8
 policy:
@@ -374,7 +374,7 @@ make the tool unusable.
 The pause prompt:
 
 ```
-⚠  laya-serve not reachable at http://<host>:8000
+⚠  System One server not reachable at http://<host>:8000
    Check the service.  [ENTER] retry  ·  [Ctrl-C] exit
 ```
 
@@ -397,10 +397,10 @@ collapses whitespace.
 |---|---|
 | `policy` | Table-driven, no network. The most important tests in the project. |
 | `extract` | Golden files from real messages: dirty HTML, quoted replies, signatures. |
-| `laya` | `httptest.Server` serving recorded responses; then a manual run against the real server. |
+| `systemone` | `httptest.Server` serving recorded responses; then a manual run against the real server. |
 | `gmail` | Defined behind an interface, with a fake implementation. |
 | `audit` | Round-trip and rollback-replay tests. |
-| End-to-end | `run --dry-run` against a fake Laya server. |
+| End-to-end | `run --dry-run` against a fake System One server. |
 
 ## Milestones
 
@@ -409,7 +409,7 @@ Each milestone ends in something runnable.
 1. **Repo + OAuth + read.** `git init`, `.gitignore`, `setup`, list the inbox and
    print headers. No Laya, no actions. This is where the credentials get solved.
 2. **`extract`.** `Message` → `State`, with golden-file tests.
-3. **`internal/laya`.** Client against `httptest.Server` with recorded responses,
+3. **`internal/systemone`.** Client against `httptest.Server` with recorded responses,
    then against the real server.
 4. **`policy` + dry run.** `run --dry-run --limit 150`. **Thresholds are
    calibrated here.**

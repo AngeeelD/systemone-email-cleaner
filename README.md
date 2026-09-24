@@ -31,7 +31,7 @@ and any run can be rolled back.
 5. **Preview, then act:**
 
    ```bash
-   export LAYA_API_KEY=...                                        # the env var named in config
+   export SYSTEMONE_API_KEY=...                                        # the env var named in config
    go run ./cmd/emailcleaner run --dry-run --limit 50 --workers 2  # prints the plan, writes nothing
    go run ./cmd/emailcleaner run --limit 500 --workers 2           # applies it
    ```
@@ -89,7 +89,7 @@ The classifier speaks the **System One** protocol: `POST /v1/systemone` with
 | Kev | Open source, local. Cleaner separation, ~200 ms. |
 | [Jev](https://typesafe.ai/) (TypeSafe) | Hosted. Use `model: "jev-latest"`. |
 
-Set `laya.endpoint` to the server and `laya.api_key_env` to the environment variable
+Set `systemone.endpoint` to the server and `systemone.api_key_env` to the environment variable
 holding its key. The client sends a language hint (`english` / `multilingual`) in the
 `model` field; a hosted backend that validates model names may need its own value.
 
