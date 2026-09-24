@@ -187,6 +187,8 @@ func (a *app) runCmd(args []string) int {
 	minJunk := fs.Float64("min-confidence-junk", -1, "override junk confidence threshold")
 	minTopic := fs.Float64("min-confidence-topic", -1, "override topic confidence threshold")
 	reprocess := fs.String("reprocess", "", "reprocess mode: unclassified")
+	before := fs.String("before", "", "only messages sent before this date (YYYY-MM-DD)")
+	after := fs.String("after", "", "only messages sent after this date (YYYY-MM-DD)")
 	workers := fs.Int("workers", 8, "concurrency")
 	if err := fs.Parse(args); err != nil {
 		return exitUsage
@@ -274,6 +276,11 @@ func (a *app) runCmd(args []string) int {
 		query = fmt.Sprintf("in:inbox label:%s", unclassifiedLabel)
 	} else {
 		query = unprocessedQuery(cfg.Labels)
+	}
+	query, qerr := withDateRange(query, *before, *after)
+	if qerr != nil {
+		fmt.Fprintf(a.stderr, "%v\n", qerr)
+		return exitUsage
 	}
 
 	ids, err := gmailClient.ListMessages(ctx, query, *limit)

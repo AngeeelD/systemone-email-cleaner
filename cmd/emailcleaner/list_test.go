@@ -49,6 +49,39 @@ func TestUnprocessedQueryQuotesLabelsContainingSpaces(t *testing.T) {
 	}
 }
 
+func TestWithDateRange(t *testing.T) {
+	tests := []struct {
+		name          string
+		before, after string
+		want          string
+		wantErr       bool
+	}{
+		{name: "no dates leaves the query unchanged", want: "in:inbox"},
+		{name: "before", before: "2026-09-20", want: "in:inbox before:2026/09/20"},
+		{name: "after", after: "2026-09-01", want: "in:inbox after:2026/09/01"},
+		{name: "slash spelling accepted", before: "2026/09/20", want: "in:inbox before:2026/09/20"},
+		{name: "both", before: "2026-09-20", after: "2026-09-01", want: "in:inbox after:2026/09/01 before:2026/09/20"},
+		{name: "garbage is rejected", before: "not-a-date", wantErr: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := withDateRange("in:inbox", tc.before, tc.after)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("withDateRange(%q, %q) error = nil, want an error", tc.before, tc.after)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("withDateRange() error = %v", err)
+			}
+			if got != tc.want {
+				t.Errorf("withDateRange() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestFormatMessageUsesDomainDateAndSubject(t *testing.T) {
 	m := &gmail.Message{
 		FromDomain: "example.com",

@@ -50,7 +50,13 @@ and any run can be rolled back.
 | `rollback` | Undo a run (default: the latest). |
 
 `run` flags: `--dry-run`, `--limit N`, `--workers N`, `--reprocess unclassified`,
-`--min-confidence-junk F`, `--min-confidence-topic F`.
+`--before YYYY-MM-DD`, `--after YYYY-MM-DD`, `--min-confidence-junk F`,
+`--min-confidence-topic F`. `list` accepts the same `--before` / `--after`.
+
+Runs are **incremental**: the query excludes every `cleaner/*` label, so an
+already-tagged message never comes back. Two runs with `--limit 100` process two
+different hundreds (Gmail returns newest first), and a message that failed is
+retried on the next run because it was never tagged.
 
 While it works, `run` shows a live progress line on stderr (silent when stderr is
 not a terminal, so cron and redirected logs stay clean), prints a line for every

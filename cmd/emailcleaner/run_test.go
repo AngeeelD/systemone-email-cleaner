@@ -453,3 +453,67 @@ func TestRun_ExitsNonZeroWhenAMessageErrors(t *testing.T) {
 		t.Errorf("run exit = %d, want %d when a message errored (stdout: %s)", code, exitGeneric, out.String())
 	}
 }
+
+// TestRun_BeforeFlagNarrowsTheQueryWithoutDroppingLabelExclusions pins that a
+// date range only narrows the run: the already-tagged messages stay excluded.
+func TestRun_BeforeFlagNarrowsTheQueryWithoutDroppingLabelExclusions(t *testing.T) {
+	auditDir := t.TempDir()
+	var capturedQuery string
+	fg := &fakeRunGmail{
+		messages: map[string]*gmail.Message{
+			"a": {ID: "a", Subject: "A", LabelIDs: []string{"INBOX"}, BodyText: "a"},
+		},
+	}
+	qg := &queryCapturingGmail{fakeRunGmail: fg, ids: []string{"a"}, messages: fg.messages, captured: &capturedQuery}
+	fl := &fakeSystemOne{predict: func(_ context.Context, _ extract.State) (systemone.Answers, error) {
+		return sampleAnswersForLabel(), nil
+	}}
+	var out, errOut bytes.Buffer
+	a := &app{
+		configPath:    writeRunConfig(t, auditDir),
+		stdout:        &out,
+		stderr:        &errOut,
+		stdin:         strings.NewReader(""),
+		clock:         func() time.Time { return time.Date(2026, 9, 23, 13, 21, 5, 0, time.UTC) },
+		sleep:         func(time.Duration) {},
+		checkToken:    func(context.Context, *config.Config) error { return nil },
+		openGmail:     func(context.Context, *config.Config) (gmailAccess, error) { return qg, nil },
+		openSystemOne: func(context.Context, *config.Config) (systemOnePredictor, error) { return fl, nil },
+		newApplier:    func(extendedGmailAccess) applier { return &act.Fake{} },
+	}
+
+	if code := a.run([]string{"run", "--before", "2026-09-20", "--workers", "1"}); code != exitOK {
+		t.Fatalf("run exit = %d, want 0 (stderr: %s)", code, errOut.String())
+	}
+	if !strings.Contains(capturedQuery, "before:2026/09/20") {
+		t.Errorf("query = %q, want it to carry before:2026/09/20", capturedQuery)
+	}
+	if !strings.Contains(capturedQuery, "-label:cleaner/banking") {
+		t.Errorf("query = %q, want the label exclusions to survive the date range", capturedQuery)
+	}
+}
+
+// TestRun_RejectsAnInvalidDate pins that a malformed --before is a usage error,
+// not a silently ignored filter that would process the whole inbox.
+func TestRun_RejectsAnInvalidDate(t *testing.T) {
+	auditDir := t.TempDir()
+	fg := &fakeRunGmail{messages: map[string]*gmail.Message{}}
+	fl := &fakeSystemOne{}
+	var out, errOut bytes.Buffer
+	a := &app{
+		configPath:    writeRunConfig(t, auditDir),
+		stdout:        &out,
+		stderr:        &errOut,
+		stdin:         strings.NewReader(""),
+		clock:         func() time.Time { return time.Date(2026, 9, 23, 13, 21, 5, 0, time.UTC) },
+		sleep:         func(time.Duration) {},
+		checkToken:    func(context.Context, *config.Config) error { return nil },
+		openGmail:     func(context.Context, *config.Config) (gmailAccess, error) { return fg, nil },
+		openSystemOne: func(context.Context, *config.Config) (systemOnePredictor, error) { return fl, nil },
+		newApplier:    func(extendedGmailAccess) applier { return &act.Fake{} },
+	}
+
+	if code := a.run([]string{"run", "--before", "yesterday"}); code != exitUsage {
+		t.Errorf("run exit = %d, want %d for an invalid date (stderr: %s)", code, exitUsage, errOut.String())
+	}
+}

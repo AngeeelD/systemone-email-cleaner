@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/AngeeelD/systemone-email-cleaner/internal/gmail"
 )
@@ -30,6 +31,43 @@ func unprocessedQuery(labels map[string]string) string {
 		parts = append(parts, "-label:"+name)
 	}
 	return strings.Join(parts, " ")
+}
+
+// normalizeGmailDate converts a user-supplied date to the YYYY/MM/DD form
+// Gmail's search operators expect. YYYY-MM-DD is accepted too because it is the
+// more common spelling.
+func normalizeGmailDate(s string) (string, error) {
+	for _, layout := range []string{"2006-01-02", "2006/01/02"} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t.Format("2006/01/02"), nil
+		}
+	}
+	return "", fmt.Errorf("invalid date %q, want YYYY-MM-DD", s)
+}
+
+// withDateRange appends Gmail's after:/before: operators to a query. Empty
+// arguments add nothing, so the base query is returned unchanged. The label
+// exclusions always stay in place: the date range only narrows, never widens.
+func withDateRange(query, before, after string) (string, error) {
+	var parts []string
+	if after != "" {
+		d, err := normalizeGmailDate(after)
+		if err != nil {
+			return "", err
+		}
+		parts = append(parts, "after:"+d)
+	}
+	if before != "" {
+		d, err := normalizeGmailDate(before)
+		if err != nil {
+			return "", err
+		}
+		parts = append(parts, "before:"+d)
+	}
+	if len(parts) == 0 {
+		return query, nil
+	}
+	return query + " " + strings.Join(parts, " "), nil
 }
 
 // formatMessage renders one line for the terminal. It favours readability over
@@ -63,6 +101,8 @@ func (a *app) list(args []string) int {
 	fs.SetOutput(a.stderr)
 	fs.StringVar(&a.configPath, "config", a.configPath, "path to the config file")
 	limit := fs.Int("limit", 20, "maximum number of messages to examine (at least 1)")
+	before := fs.String("before", "", "only messages sent before this date (YYYY-MM-DD)")
+	after := fs.String("after", "", "only messages sent after this date (YYYY-MM-DD)")
 	if err := fs.Parse(args); err != nil {
 		return exitUsage
 	}
@@ -92,7 +132,11 @@ func (a *app) list(args []string) int {
 		return exitGeneric
 	}
 
-	query := unprocessedQuery(cfg.Labels)
+	query, qerr := withDateRange(unprocessedQuery(cfg.Labels), *before, *after)
+	if qerr != nil {
+		fmt.Fprintf(a.stderr, "%v\n", qerr)
+		return exitUsage
+	}
 	ids, err := client.ListMessages(ctx, query, *limit)
 	if err != nil {
 		fmt.Fprintf(a.stderr, "cannot list messages: %v\n", err)
