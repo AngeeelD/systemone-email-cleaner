@@ -559,7 +559,7 @@ func processOne(ctx context.Context, gmailClient extendedGmailAccess, systemOneC
 	// Convert answers for audit.
 	auditAnswers := make(map[string]audit.Answer, len(answers))
 	for k, a := range answers {
-		auditAnswers[k] = audit.Answer{Choice: a.Choice, Confidence: a.Confidence}
+		auditAnswers[k] = audit.Answer{Choice: a.Choice, Confidence: a.Confidence, Probabilities: a.Probabilities}
 	}
 	rec.Answers = auditAnswers
 

@@ -96,6 +96,8 @@ func (a *app) run(args []string) int {
 		return a.list(rest)
 	case "run":
 		return a.runCmd(rest)
+	case "tune":
+		return a.tune(rest)
 	case "rollback":
 		return a.rollbackCmd(rest)
 	case "help", "-h", "--help":
@@ -116,6 +118,7 @@ Commands:
   setup    Authorize with Gmail and create any missing labels. Idempotent.
   list     Print the headers of unprocessed inbox messages.
   run      Classify and act on unprocessed messages.
+  tune     Sample messages and sweep the thresholds. Writes nothing.
   rollback Undo a run (default: latest).
 
 Flags are per command; run "emailcleaner <command> -h" for details.

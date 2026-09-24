@@ -11,10 +11,13 @@ import (
 	"strings"
 )
 
-// Answer mirrors systemone.Answer for audit persistence.
+// Answer mirrors systemone.Answer for audit persistence. Probabilities are kept
+// because the policy gates on probabilities["A"], not on Confidence: without
+// them the thresholds cannot be replayed or tuned from a recorded run.
 type Answer struct {
-	Choice     string  `json:"choice"`
-	Confidence float64 `json:"confidence"`
+	Choice        string             `json:"choice"`
+	Confidence    float64            `json:"confidence"`
+	Probabilities map[string]float64 `json:"probabilities,omitempty"`
 }
 
 // Action describes label mutations.

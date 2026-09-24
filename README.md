@@ -47,6 +47,7 @@ and any run can be rolled back.
 | `setup` | Authorize with Gmail and create any missing labels. Idempotent. |
 | `list` | Print the headers of unprocessed inbox messages. |
 | `run` | Classify and act. `--dry-run` prints the plan and writes nothing. |
+| `tune` | Sample messages and sweep the thresholds. Writes nothing. |
 | `rollback` | Undo a run (default: the latest). |
 
 `run` flags: `--dry-run`, `--limit N`, `--workers N`, `--reprocess unclassified`,
@@ -67,6 +68,26 @@ Runs also self-throttle: Gmail calls are paced under the 6000 units/min quota, a
 when the quota is exhausted (`403 … RATE_LIMIT_EXCEEDED`) every worker pauses for
 the window instead of retrying into it. A message that still failed was never
 tagged, so the next run picks it up.
+
+### Tuning the thresholds
+
+`tune` samples messages, asks the model once per message, and replays the policy
+across a grid of thresholds. It writes nothing — no label changes, no audit file:
+
+```
+go run ./cmd/emailcleaner tune --limit 200
+```
+
+```
+  junk  topic |  trash  label  unclass  spillover
+  -----------+-------------------------------------
+  0.50   0.60 |     ..     ..       ..         ..
+* 0.60   0.60 |     ..     ..       ..         ..
+```
+
+The current config is marked `*`. It gates on the model's `probabilities`, so
+`tune` and `run` agree by construction. Every `run` records those probabilities in
+`audit/`, so a past run can be replayed the same way.
 
 ## Labels
 
