@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"emailcleaner/internal/config"
-	"emailcleaner/internal/extract"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/config"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/extract"
 )
 
 func testState() extract.State {

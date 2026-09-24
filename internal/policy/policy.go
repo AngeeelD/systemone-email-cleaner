@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"emailcleaner/internal/config"
-	"emailcleaner/internal/laya"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/config"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/laya"
 )
 
 // Kind is the decision outcome.

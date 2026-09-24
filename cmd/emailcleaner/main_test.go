@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"emailcleaner/internal/config"
-	"emailcleaner/internal/gmail"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/config"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/gmail"
 )
 
 // writeConfig writes a minimal valid config file and returns its path. The

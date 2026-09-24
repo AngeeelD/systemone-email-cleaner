@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"emailcleaner/internal/config"
-	"emailcleaner/internal/gmail"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/config"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/gmail"
 )
 
 func readGolden(t *testing.T, path string) string {

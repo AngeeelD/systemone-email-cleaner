@@ -10,8 +10,8 @@ import (
 
 	"golang.org/x/net/html"
 
-	"emailcleaner/internal/config"
-	"emailcleaner/internal/gmail"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/config"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/gmail"
 )
 
 // State is the JSON payload sent to Laya. It mirrors the schema from the

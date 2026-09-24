@@ -11,12 +11,12 @@ import (
 	"testing"
 	"time"
 
-	"emailcleaner/internal/act"
-	"emailcleaner/internal/audit"
-	"emailcleaner/internal/config"
-	"emailcleaner/internal/extract"
-	"emailcleaner/internal/gmail"
-	"emailcleaner/internal/laya"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/act"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/audit"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/config"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/extract"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/gmail"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/laya"
 )
 
 // fakeRunGmail is a test double for extendedGmailAccess.

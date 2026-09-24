@@ -8,7 +8,7 @@ import (
 	"io"
 	"strings"
 
-	"emailcleaner/internal/audit"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/audit"
 )
 
 func (a *app) rollbackCmd(args []string) int {

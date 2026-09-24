@@ -1,4 +1,4 @@
-module emailcleaner
+module github.com/AngeeelD/systemone-email-cleaner
 
 go 1.27
 

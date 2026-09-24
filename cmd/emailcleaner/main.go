@@ -8,10 +8,10 @@ import (
 	"os"
 	"time"
 
-	"emailcleaner/internal/act"
-	"emailcleaner/internal/config"
-	"emailcleaner/internal/gmail"
-	"emailcleaner/internal/laya"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/act"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/config"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/gmail"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/laya"
 )
 
 const (

@@ -12,12 +12,12 @@ import (
 	"sync"
 	"time"
 
-	"emailcleaner/internal/audit"
-	"emailcleaner/internal/config"
-	"emailcleaner/internal/extract"
-	"emailcleaner/internal/gmail"
-	"emailcleaner/internal/laya"
-	"emailcleaner/internal/policy"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/audit"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/config"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/extract"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/gmail"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/laya"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/policy"
 
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/time/rate"

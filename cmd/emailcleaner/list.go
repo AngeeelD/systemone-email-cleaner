@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"emailcleaner/internal/gmail"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/gmail"
 )
 
 // unprocessedQuery selects inbox messages carrying none of the configured

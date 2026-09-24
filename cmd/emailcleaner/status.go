@@ -6,8 +6,8 @@ import (
 	"flag"
 	"fmt"
 
-	"emailcleaner/internal/config"
-	"emailcleaner/internal/gmail"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/config"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/gmail"
 )
 
 // checkToken validates the stored Gmail token without touching the mailbox.

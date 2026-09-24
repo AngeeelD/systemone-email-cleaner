@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"sort"
 
-	"emailcleaner/internal/config"
-	"emailcleaner/internal/gmail"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/config"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/gmail"
 )
 
 // interactiveAuthorize runs the interactive OAuth flow, sending the consent URL

@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"emailcleaner/internal/config"
-	"emailcleaner/internal/extract"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/config"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/extract"
 )
 
 // Answer is a single Laya choice answer with confidence and optional token probabilities.
