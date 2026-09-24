@@ -61,9 +61,9 @@ func (f *fakeRunGmail) Untrash(_ context.Context, id string) error { return nil 
 
 // fakeLaya implements layaPredictor.
 type fakeLaya struct {
-	predict func(context.Context, extract.State) (laya.Answers, error)
+	predict          func(context.Context, extract.State) (laya.Answers, error)
 	predictParagraph func(context.Context, string) (laya.Answers, error)
-	ping    func(context.Context) error
+	ping             func(context.Context) error
 }
 
 func (f *fakeLaya) Predict(ctx context.Context, s extract.State) (laya.Answers, error) {
