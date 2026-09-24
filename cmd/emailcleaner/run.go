@@ -318,6 +318,10 @@ func (a *app) runCmd(args []string) int {
 		sleep:    sleepFn,
 	}
 
+	// Live progress on stderr while the run is in flight. It is silent when
+	// stderr is not a terminal (cron, redirected logs).
+	prog := newRunProgress(a.stderr, len(ids), nil)
+
 	type result struct {
 		rec audit.Record
 		err error
@@ -395,6 +399,16 @@ func (a *app) runCmd(args []string) int {
 					safeFprintf(&outMu, a.stdout, "%s\n", line)
 				}
 
+				if !*dryRun {
+					prog.record(rec)
+					// A run is quiet on success and loud on failure: the live
+					// counter covers progress, and each error or skip prints a
+					// line so it shows up immediately, not only in the audit.
+					if rec.Outcome == "error" || rec.Outcome == "skipped" {
+						safeFprintf(&outMu, a.stdout, "%s\n", formatDryRun(rec))
+					}
+				}
+
 				mu.Lock()
 				switch rec.Outcome {
 				case "applied":
@@ -425,12 +439,18 @@ func (a *app) runCmd(args []string) int {
 		return exitGeneric
 	}
 	close(resCh)
+	prog.finish()
 
 	if *dryRun {
 		fmt.Fprintf(a.stdout, "dry-run complete: %d would be applied, %d skipped, %d errors\n", applied, skipped, errorsCount)
 		return exitOK
 	}
 	fmt.Fprintf(a.stdout, "run %s: %d applied, %d skipped, %d errors (%d total)\n", runID, applied, skipped, errorsCount, len(ids))
+	if errorsCount > 0 {
+		// A run with per-message failures must not exit 0: cron and CI would
+		// treat a broken run as a clean one.
+		return exitGeneric
+	}
 	return exitOK
 }
 

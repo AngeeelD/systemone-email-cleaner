@@ -52,6 +52,11 @@ and any run can be rolled back.
 `run` flags: `--dry-run`, `--limit N`, `--workers N`, `--reprocess unclassified`,
 `--min-confidence-junk F`, `--min-confidence-topic F`.
 
+While it works, `run` shows a live progress line on stderr (silent when stderr is
+not a terminal, so cron and redirected logs stay clean), prints a line for every
+error or skip as it happens, and **exits non-zero when any message failed** — so
+cron can tell a broken run from a clean one.
+
 ## Labels
 
 | Label | Meaning |

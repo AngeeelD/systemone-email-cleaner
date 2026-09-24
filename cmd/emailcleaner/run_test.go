@@ -429,3 +429,27 @@ func (q *queryCapturingGmail) ListMessages(ctx context.Context, query string, ma
 func (q *queryCapturingGmail) GetMessage(ctx context.Context, id string) (*gmail.Message, error) {
 	return q.fakeRunGmail.GetMessage(ctx, id)
 }
+
+// TestRun_ExitsNonZeroWhenAMessageErrors pins that a run with per-message
+// failures does not exit 0: cron and CI must be able to tell a broken run from
+// a clean one.
+func TestRun_ExitsNonZeroWhenAMessageErrors(t *testing.T) {
+	auditDir := t.TempDir()
+	fg := &fakeRunGmail{
+		ids: []string{"a"},
+		messages: map[string]*gmail.Message{
+			"a": {ID: "a", Subject: "Bank notice", LabelIDs: []string{"INBOX"}, BodyText: "deposito"},
+		},
+	}
+	fl := &fakeSystemOne{
+		predict: func(_ context.Context, _ extract.State) (systemone.Answers, error) {
+			return sampleAnswersForLabel(), nil
+		},
+	}
+	fakeApplier := &act.Fake{ModifyErr: errors.New("gmail rejected the modify")}
+	a, out, _ := newRunApp(t, fg, fl, fakeApplier, auditDir, "")
+
+	if code := a.run([]string{"run", "--workers", "1"}); code != exitGeneric {
+		t.Errorf("run exit = %d, want %d when a message errored (stdout: %s)", code, exitGeneric, out.String())
+	}
+}
