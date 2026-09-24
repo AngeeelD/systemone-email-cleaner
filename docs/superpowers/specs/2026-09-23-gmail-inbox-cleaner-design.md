@@ -319,7 +319,7 @@ gmail:
   credentials_file: client_secret.json
   token_file: token.json
 laya:
-  endpoint: http://192.168.1.50:8000
+  endpoint: http://127.0.0.1:8000
   api_key_env: LAYA_API_KEY
   timeout: 30s
   workers: 8

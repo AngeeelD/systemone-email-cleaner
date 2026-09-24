@@ -71,7 +71,7 @@ Click **Create**, then **Download JSON**. Move the downloaded file to the projec
 
 - [ ] **Step 6: Confirm it is gitignored**
 
-Run: `cd /home/angeeeld/Code/go/email_cleaner && git check-ignore -v client_secret.json`
+Run: `cd ~/code/systemone-email-cleaner && git check-ignore -v client_secret.json`
 Expected: output naming `.gitignore` and the `client_secret.json` rule. **If this prints nothing, stop** — the file is not ignored and must not be committed.
 
 ---
@@ -91,7 +91,7 @@ Expected: output naming `.gitignore` and the `client_secret.json` rule. **If thi
 - [ ] **Step 1: Initialize the module**
 
 ```bash
-cd /home/angeeeld/Code/go/email_cleaner
+cd ~/code/systemone-email-cleaner
 go mod init emailcleaner
 go get gopkg.in/yaml.v3
 go get golang.org/x/oauth2
@@ -353,7 +353,7 @@ gmail:
   credentials_file: client_secret.json
   token_file: token.json
 laya:
-  endpoint: http://192.168.1.50:8000
+  endpoint: http://127.0.0.1:8000
   api_key_env: LAYA_API_KEY
   timeout: 30s
   workers: 8
@@ -407,7 +407,7 @@ import (
 	"strings"
 	"testing"
 
-	"emailcleaner/internal/config"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/config"
 )
 
 func newTestApp(t *testing.T) (*app, *bytes.Buffer, *bytes.Buffer) {
@@ -518,7 +518,7 @@ import (
 	"io"
 	"os"
 
-	"emailcleaner/internal/config"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/config"
 )
 
 const (
@@ -604,7 +604,7 @@ import (
 	"flag"
 	"fmt"
 
-	"emailcleaner/internal/config"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/config"
 )
 
 // checkToken validates the stored Gmail token without touching the mailbox.
@@ -1071,7 +1071,7 @@ Expected: PASS, 9 tests.
 
 - [ ] **Step 5: Verify the token really is ignored by git**
 
-Run: `cd /home/angeeeld/Code/go/email_cleaner && printf 'x' > token.json && git check-ignore -v token.json; rm token.json`
+Run: `cd ~/code/systemone-email-cleaner && printf 'x' > token.json && git check-ignore -v token.json; rm token.json`
 Expected: output naming `.gitignore`. If nothing prints, stop and fix `.gitignore` before continuing.
 
 - [ ] **Step 6: Wire the real token check into the CLI**
@@ -1084,8 +1084,8 @@ import (
 	"flag"
 	"fmt"
 
-	"emailcleaner/internal/config"
-	"emailcleaner/internal/gmail"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/config"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/gmail"
 )
 
 // checkToken validates the stored Gmail token without touching the mailbox.
@@ -1109,7 +1109,7 @@ This changes what `isReAuth` recognises, so **the Task 2 test must change with i
 	}
 ```
 
-and add `"emailcleaner/internal/gmail"` to that file's imports. If you skip this the test fails, and the failure is the test's fault, not the code's.
+and add `"github.com/AngeeelD/systemone-email-cleaner/internal/gmail"` to that file's imports. If you skip this the test fails, and the failure is the test's fault, not the code's.
 
 - [ ] **Step 7: Run all tests**
 
@@ -2029,7 +2029,7 @@ import (
 	"strings"
 	"testing"
 
-	"emailcleaner/internal/config"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/config"
 )
 
 type fakeGmail struct {
@@ -2225,8 +2225,8 @@ import (
 	"os"
 	"sort"
 
-	"emailcleaner/internal/config"
-	"emailcleaner/internal/gmail"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/config"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/gmail"
 )
 
 // authorize runs the interactive OAuth flow, sending the consent URL to the
@@ -2373,7 +2373,7 @@ import (
 	"testing"
 	"time"
 
-	"emailcleaner/internal/gmail"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/gmail"
 )
 
 func TestUnprocessedQueryExcludesEveryConfiguredLabel(t *testing.T) {
@@ -2479,7 +2479,7 @@ import (
 	"sort"
 	"strings"
 
-	"emailcleaner/internal/gmail"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/gmail"
 )
 
 // unprocessedQuery selects inbox messages carrying none of the configured
@@ -2618,7 +2618,7 @@ func (f *fakeGmail) GetMessage(_ context.Context, id string) (*gmail.Message, er
 }
 ```
 
-Add `"emailcleaner/internal/gmail"` to that file's imports.
+Add `"github.com/AngeeelD/systemone-email-cleaner/internal/gmail"` to that file's imports.
 
 Then add the command to the dispatcher in the same file: the `list` case in `run`, and its line in the `usage` text.
 
@@ -2702,7 +2702,7 @@ func TestListReportsExpiredTokenAsExitCodeThree(t *testing.T) {
 }
 ```
 
-`TestListReportsExpiredTokenAsExitCodeThree` needs `"emailcleaner/internal/config"` in the imports of `list_test.go`.
+`TestListReportsExpiredTokenAsExitCodeThree` needs `"github.com/AngeeelD/systemone-email-cleaner/internal/config"` in the imports of `list_test.go`.
 
 - [ ] **Step 6: Run the tests to verify they pass**
 
