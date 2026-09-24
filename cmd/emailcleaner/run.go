@@ -16,8 +16,8 @@ import (
 	"github.com/AngeeelD/systemone-email-cleaner/internal/config"
 	"github.com/AngeeelD/systemone-email-cleaner/internal/extract"
 	"github.com/AngeeelD/systemone-email-cleaner/internal/gmail"
-	"github.com/AngeeelD/systemone-email-cleaner/internal/systemone"
 	"github.com/AngeeelD/systemone-email-cleaner/internal/policy"
+	"github.com/AngeeelD/systemone-email-cleaner/internal/systemone"
 
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/time/rate"

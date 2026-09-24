@@ -387,16 +387,16 @@ func TestRun_ReprocessAndLimitFlags(t *testing.T) {
 	var out, errOut bytes.Buffer
 	cfgPath := writeRunConfig(t, auditDir)
 	a := &app{
-		configPath: cfgPath,
-		stdout:     &out,
-		stderr:     &errOut,
-		stdin:      strings.NewReader(""),
-		clock:      func() time.Time { return time.Date(2026, 9, 23, 13, 21, 5, 0, time.UTC) },
-		sleep:      func(time.Duration) {},
-		checkToken: func(context.Context, *config.Config) error { return nil },
-		openGmail:  func(context.Context, *config.Config) (gmailAccess, error) { return fakeListGmail, nil },
-		openSystemOne:   func(context.Context, *config.Config) (systemOnePredictor, error) { return fl, nil },
-		newApplier: func(extendedGmailAccess) applier { return &act.Fake{} },
+		configPath:    cfgPath,
+		stdout:        &out,
+		stderr:        &errOut,
+		stdin:         strings.NewReader(""),
+		clock:         func() time.Time { return time.Date(2026, 9, 23, 13, 21, 5, 0, time.UTC) },
+		sleep:         func(time.Duration) {},
+		checkToken:    func(context.Context, *config.Config) error { return nil },
+		openGmail:     func(context.Context, *config.Config) (gmailAccess, error) { return fakeListGmail, nil },
+		openSystemOne: func(context.Context, *config.Config) (systemOnePredictor, error) { return fl, nil },
+		newApplier:    func(extendedGmailAccess) applier { return &act.Fake{} },
 	}
 	_ = out // keep
 	if code := a.run([]string{"run", "--reprocess=unclassified", "--limit", "2", "--workers", "1"}); code != exitOK {

@@ -35,28 +35,28 @@ type app struct {
 	stderr     io.Writer
 
 	// The following are fields so tests can run without Google or a browser.
-	authorize  func(context.Context, *config.Config) error
-	checkToken func(context.Context, *config.Config) error
-	openGmail  func(context.Context, *config.Config) (gmailAccess, error)
-	openSystemOne   func(context.Context, *config.Config) (systemOnePredictor, error)
-	newApplier func(extendedGmailAccess) applier
-	stdin      io.Reader
-	clock      clockFunc
-	sleep      func(time.Duration)
+	authorize     func(context.Context, *config.Config) error
+	checkToken    func(context.Context, *config.Config) error
+	openGmail     func(context.Context, *config.Config) (gmailAccess, error)
+	openSystemOne func(context.Context, *config.Config) (systemOnePredictor, error)
+	newApplier    func(extendedGmailAccess) applier
+	stdin         io.Reader
+	clock         clockFunc
+	sleep         func(time.Duration)
 }
 
 func main() {
 	a := &app{
-		configPath: "config.yaml",
-		stdout:     os.Stdout,
-		stderr:     os.Stderr,
-		stdin:      os.Stdin,
-		clock:      time.Now,
-		sleep:      time.Sleep,
-		checkToken: checkToken,
-		openGmail:  newGmailAccess,
-		openSystemOne:   newSystemOneClient,
-		newApplier: newRealApplier,
+		configPath:    "config.yaml",
+		stdout:        os.Stdout,
+		stderr:        os.Stderr,
+		stdin:         os.Stdin,
+		clock:         time.Now,
+		sleep:         time.Sleep,
+		checkToken:    checkToken,
+		openGmail:     newGmailAccess,
+		openSystemOne: newSystemOneClient,
+		newApplier:    newRealApplier,
 	}
 	a.authorize = a.interactiveAuthorize // method value; see ruling R8
 	os.Exit(a.run(os.Args[1:]))
