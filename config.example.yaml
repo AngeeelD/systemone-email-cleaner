@@ -9,7 +9,7 @@ laya:
   workers: 8
 policy:
   min_confidence_junk: 0.95
-  min_confidence_topic: 0.85
+  min_confidence_topic: 0.70
 labels:
   people: cleaner/people
   action: cleaner/action

@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -86,6 +87,39 @@ var DefaultQuestions = Questions{
 	},
 }
 
+// detectLangHint returns a model hint for the Router backend. It uses a
+// deterministic heuristic without external dependencies:
+//   - If BodyPreview+Subject+From/FromDomain contains Spanish markers
+//     (ñ,á,é,í,ó,ú,ü,¿,¡) or common Spanish words (de, la, el, con, para,
+//     por, cuenta, depósito, retiro, transferencia) or a .mx/.es domain,
+//     return "multilingual".
+//   - Otherwise return "english".
+//
+// The Router (aac6fef/laya-mlx 512 and aac6fef/laya-multilingual-mlx 1024)
+// supports {"model":"multilingual"} or {"model":"english"} passthrough to
+// force model selection per email. This hint is always set so the backend
+// can route deterministically; callers should treat it as best-effort.
+func detectLangHint(state extract.State) string {
+	text := strings.ToLower(state.BodyPreview + " " + state.Subject + " " + state.From + " " + state.FromDomain)
+	domain := strings.ToLower(strings.TrimSpace(state.FromDomain))
+	if strings.HasSuffix(domain, ".mx") || strings.HasSuffix(domain, ".es") {
+		return "multilingual"
+	}
+	for _, ch := range []string{"ñ", "á", "é", "í", "ó", "ú", "ü", "¿", "¡"} {
+		if strings.Contains(text, ch) {
+			return "multilingual"
+		}
+	}
+	spanishWords := []string{"de", "la", "el", "con", "para", "por", "cuenta", "depósito", "retiro", "transferencia"}
+	for _, w := range spanishWords {
+		pattern := `\b` + regexp.QuoteMeta(w) + `\b`
+		if matched, _ := regexp.MatchString(pattern, text); matched {
+			return "multilingual"
+		}
+	}
+	return "english"
+}
+
 // ErrUnprocessable signals HTTP 422 from laya-serve. A single bad message
 // must not stop a run — callers should treat this as skip+log.
 var ErrUnprocessable = errors.New("laya: unprocessable entity")
@@ -134,12 +168,15 @@ func (c *Client) PredictWithQuestions(ctx context.Context, state extract.State, 
 		qs = DefaultQuestions
 	}
 
+	modelHint := detectLangHint(state)
 	reqBody := struct {
 		State     extract.State `json:"state"`
 		Questions Questions     `json:"questions"`
+		Model     string        `json:"model,omitempty"`
 	}{
 		State:     state,
 		Questions: qs,
+		Model:     modelHint,
 	}
 
 	body, err := json.Marshal(reqBody)

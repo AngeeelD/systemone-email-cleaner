@@ -11,7 +11,7 @@ import (
 func defaultPolicy() config.Policy {
 	return config.Policy{
 		MinConfidenceJunk:  0.95,
-		MinConfidenceTopic: 0.85,
+		MinConfidenceTopic: 0.70,
 	}
 }
 
@@ -171,7 +171,7 @@ func TestDecide(t *testing.T) {
 		{
 			name: "is_person below threshold unclassified",
 			answers: laya.Answers{
-				"is_person": ans("A", 0.84),
+				"is_person": ans("A", 0.69),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -181,9 +181,9 @@ func TestDecide(t *testing.T) {
 			wantReason: "unclassified",
 		},
 		{
-			name: "is_person at exactly 0.85 inclusive",
+			name: "is_person at exactly 0.70 inclusive",
 			answers: laya.Answers{
-				"is_person": ans("A", 0.85),
+				"is_person": ans("A", 0.70),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -195,7 +195,7 @@ func TestDecide(t *testing.T) {
 		{
 			name: "is_banking above threshold alone",
 			answers: laya.Answers{
-				"is_banking": ans("A", 0.85),
+				"is_banking": ans("A", 0.70),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -207,7 +207,7 @@ func TestDecide(t *testing.T) {
 		{
 			name: "is_security above threshold alone",
 			answers: laya.Answers{
-				"is_security": ans("A", 0.90),
+				"is_security": ans("A", 0.70),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -219,7 +219,7 @@ func TestDecide(t *testing.T) {
 		{
 			name: "is_purchase above maps to accounts label",
 			answers: laya.Answers{
-				"is_purchase": ans("A", 0.85),
+				"is_purchase": ans("A", 0.70),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -229,9 +229,9 @@ func TestDecide(t *testing.T) {
 			wantReason: "is_purchase",
 		},
 		{
-			name: "is_banking at exactly 0.85 inclusive",
+			name: "is_banking at exactly 0.70 inclusive",
 			answers: laya.Answers{
-				"is_banking": ans("A", 0.85),
+				"is_banking": ans("A", 0.70),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -243,7 +243,7 @@ func TestDecide(t *testing.T) {
 		{
 			name: "is_security below threshold unclassified",
 			answers: laya.Answers{
-				"is_security": ans("A", 0.84),
+				"is_security": ans("A", 0.69),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -255,7 +255,7 @@ func TestDecide(t *testing.T) {
 		{
 			name: "multiple topics people+banking together",
 			answers: laya.Answers{
-				"is_person":  ans("A", 0.85),
+				"is_person":  ans("A", 0.70),
 				"is_banking": ans("A", 0.91),
 			},
 			policy:     defaultPolicy(),
@@ -268,10 +268,10 @@ func TestDecide(t *testing.T) {
 		{
 			name: "all four topics above",
 			answers: laya.Answers{
-				"is_person":   ans("A", 0.85),
-				"is_banking":  ans("A", 0.85),
-				"is_security": ans("A", 0.85),
-				"is_purchase": ans("A", 0.85),
+				"is_person":   ans("A", 0.70),
+				"is_banking":  ans("A", 0.70),
+				"is_security": ans("A", 0.70),
+				"is_purchase": ans("A", 0.70),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -283,10 +283,10 @@ func TestDecide(t *testing.T) {
 		{
 			name: "all topics below threshold unclassified",
 			answers: laya.Answers{
-				"is_person":   ans("A", 0.84),
-				"is_banking":  ans("A", 0.84),
-				"is_security": ans("A", 0.84),
-				"is_purchase": ans("A", 0.84),
+				"is_person":   ans("A", 0.69),
+				"is_banking":  ans("A", 0.69),
+				"is_security": ans("A", 0.69),
+				"is_purchase": ans("A", 0.69),
 				"is_junk":     ans("B", 0.90),
 			},
 			policy:     defaultPolicy(),
@@ -505,7 +505,7 @@ func TestDecide(t *testing.T) {
 		{
 			name: "is_banking below threshold unclassified",
 			answers: laya.Answers{
-				"is_banking": ans("A", 0.84),
+				"is_banking": ans("A", 0.69),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -557,7 +557,7 @@ func TestDecide(t *testing.T) {
 			name: "junk 1.00 with banking below threshold still trash",
 			answers: laya.Answers{
 				"is_junk":    ans("A", 1.00),
-				"is_banking": ans("A", 0.84),
+				"is_banking": ans("A", 0.69),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -569,10 +569,10 @@ func TestDecide(t *testing.T) {
 		{
 			name: "all four topics above including banking",
 			answers: laya.Answers{
-				"is_person":   ans("A", 0.85),
-				"is_banking":  ans("A", 0.85),
-				"is_security": ans("A", 0.85),
-				"is_purchase": ans("A", 0.85),
+				"is_person":   ans("A", 0.70),
+				"is_banking":  ans("A", 0.70),
+				"is_security": ans("A", 0.70),
+				"is_purchase": ans("A", 0.70),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -600,7 +600,7 @@ func TestDecide(t *testing.T) {
 		{
 			name: "banking custom label from config",
 			answers: laya.Answers{
-				"is_banking": ans("A", 0.85),
+				"is_banking": ans("A", 0.70),
 			},
 			policy: defaultPolicy(),
 			labels: map[string]string{
@@ -620,10 +620,10 @@ func TestDecide(t *testing.T) {
 		{
 			name: "banking deterministic order second",
 			answers: laya.Answers{
-				"is_banking":  ans("A", 0.85),
-				"is_person":   ans("A", 0.85),
-				"is_purchase": ans("A", 0.85),
-				"is_security": ans("A", 0.85),
+				"is_banking":  ans("A", 0.70),
+				"is_person":   ans("A", 0.70),
+				"is_purchase": ans("A", 0.70),
+				"is_security": ans("A", 0.70),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -635,7 +635,7 @@ func TestDecide(t *testing.T) {
 		{
 			name: "is_banking choice case-insensitive and whitespace",
 			answers: laya.Answers{
-				"is_banking": ans(" a ", 0.85),
+				"is_banking": ans(" a ", 0.70),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -658,10 +658,10 @@ func TestDecide(t *testing.T) {
 			wantReason: "is_banking",
 		},
 		{
-			name: "margin: junk 1.00 with max topic 0.84 below threshold still trash",
+			name: "margin: junk 1.00 with max topic 0.69 below threshold still trash",
 			answers: laya.Answers{
 				"is_junk":    ans("A", 1.00),
-				"is_banking": ans("A", 0.84),
+				"is_banking": ans("A", 0.69),
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
@@ -748,7 +748,7 @@ func TestDecide(t *testing.T) {
 			name: "margin: ignores topics below threshold when computing max",
 			answers: laya.Answers{
 				"is_junk":    ans("A", 1.00),
-				"is_person":  ans("A", 0.84),
+				"is_person":  ans("A", 0.69),
 				"is_banking": ans("A", 0.95),
 			},
 			policy:     defaultPolicy(),

@@ -56,6 +56,7 @@ func newTestClient(t *testing.T, handler http.Handler) *Client {
 func TestPredict_Success_AllFiveAnswers(t *testing.T) {
 	var gotState extract.State
 	var gotQuestions Questions
+	var gotModel string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/systemone" {
 			t.Errorf("path = %q, want /v1/systemone", r.URL.Path)
@@ -69,12 +70,14 @@ func TestPredict_Success_AllFiveAnswers(t *testing.T) {
 		var req struct {
 			State     extract.State `json:"state"`
 			Questions Questions     `json:"questions"`
+			Model     string        `json:"model"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			t.Fatalf("decode request: %v", err)
 		}
 		gotState = req.State
 		gotQuestions = req.Questions
+		gotModel = req.Model
 
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(okResponse())
@@ -115,6 +118,38 @@ func TestPredict_Success_AllFiveAnswers(t *testing.T) {
 	}
 	if _, ok := gotQuestions["is_banking"]; !ok {
 		t.Error("forwarded questions missing is_banking")
+	}
+	// Verify language hint routing model is present (english for default English state).
+	if gotModel != "english" && gotModel != "multilingual" {
+		t.Errorf("forwarded model = %q, want english or multilingual", gotModel)
+	}
+	if gotModel != "english" {
+		t.Errorf("forwarded model for English testState = %q, want english", gotModel)
+	}
+	// Verify Spanish hint routes to multilingual.
+	spanishState := extract.State{
+		From:        "Banco <noreply@banco.mx>",
+		FromDomain:  "banco.mx",
+		Subject:     "Depósito recibido",
+		BodyPreview: "hola depósito cuenta transferencia",
+	}
+	srv2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Model string `json:"model"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		gotModel = req.Model
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(okResponse())
+	}))
+	t.Cleanup(srv2.Close)
+	cfg2 := config.Laya{Endpoint: srv2.URL, Timeout: config.Duration(5 * time.Second)}
+	c2 := New(cfg2)
+	if _, err := c2.Predict(context.Background(), spanishState); err != nil {
+		t.Fatalf("Predict spanish error: %v", err)
+	}
+	if gotModel != "multilingual" {
+		t.Errorf("forwarded model for Spanish state = %q, want multilingual", gotModel)
 	}
 }
 
