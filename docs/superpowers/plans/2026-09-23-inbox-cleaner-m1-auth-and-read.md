@@ -414,7 +414,7 @@ func newTestApp(t *testing.T) (*app, *bytes.Buffer, *bytes.Buffer) {
 	t.Helper()
 	var out, errOut bytes.Buffer
 	a := &app{
-		configPath: t.TempDir() + "/config.yaml",
+		configPath: writeConfig(t),
 		stdout:     &out,
 		stderr:     &errOut,
 	}
@@ -450,7 +450,7 @@ func TestRunHelpSucceeds(t *testing.T) {
 	if got := a.run([]string{"help"}); got != exitOK {
 		t.Errorf("run(help) = %d, want %d", got, exitOK)
 	}
-	if !strings.Contains(errOut.String(), "setup") {
+	if !strings.Contains(errOut.String(), "status") {
 		t.Errorf("stderr = %q, want the command list", errOut.String())
 	}
 }
@@ -478,6 +478,24 @@ func TestStatusReportsGenericFailureAsExitCodeOne(t *testing.T) {
 	if got := a.run([]string{"status"}); got != exitGeneric {
 		t.Errorf("run(status) = %d, want %d", got, exitGeneric)
 	}
+}
+```
+
+Add these two imports and this helper to that test file; the block above omits
+them deliberately so the point is not lost in a wall of code. `"os"` and
+`"path/filepath"` are needed by the helper, and **`newTestApp` must point at a
+config file that actually exists**: a missing file is a usage error (exit 2),
+which would mask the token behaviour the two `status` tests exist to assert.
+
+```go
+// writeConfig writes a minimal config file and returns its path.
+func writeConfig(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte("gmail:\n  token_file: token.json\n"), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	return path
 }
 ```
 
@@ -538,10 +556,6 @@ func (a *app) run(args []string) int {
 
 	cmd, rest := args[0], args[1:]
 	switch cmd {
-	case "setup":
-		return a.setup(rest)
-	case "list":
-		return a.list(rest)
 	case "status":
 		return a.status(rest)
 	case "help", "-h", "--help":
@@ -558,8 +572,6 @@ func (a *app) usage(w io.Writer) {
 	fmt.Fprintf(w, `usage: emailcleaner <command>
 
 Commands:
-  setup    Authorize with Gmail and create any missing labels. Idempotent.
-  list     Print the headers of unprocessed inbox messages.
   status   Report token health and the current label set.
 
 Flags are per command; run "emailcleaner <command> -h" for details.
@@ -577,6 +589,8 @@ func (a *app) loadConfig() (*config.Config, int) {
 	return cfg, exitOK
 }
 ```
+
+**Note on the dispatcher.** The `switch` and the usage text contain only the commands that exist right now. Task 6 adds the `setup` case and its usage line; Task 7 adds `list`. Do not add cases for commands that are not implemented — referencing a missing method stops the whole package from compiling.
 
 - [ ] **Step 4: Write the status command**
 
@@ -798,11 +812,13 @@ func TestLoadTokenRejectsCorruptFile(t *testing.T) {
 func TestCredentialsConfigReadsDesktopClient(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "client_secret.json")
 	body, _ := json.Marshal(map[string]any{
-		"installed": map[string]string{
+		"installed": map[string]any{
 			"client_id":     "id.apps.googleusercontent.com",
 			"client_secret": "secret",
 			"auth_uri":      "https://accounts.google.com/o/oauth2/auth",
 			"token_uri":     "https://oauth2.googleapis.com/token",
+			// google.ConfigFromJSON rejects a client secret without this key.
+			"redirect_uris": []string{"http://localhost"},
 		},
 	})
 	if err := os.WriteFile(path, body, 0o600); err != nil {
@@ -1028,6 +1044,26 @@ Add `"encoding/json"` to the import block.
 
 Note: `gmailapi` is imported for `GmailModifyScope`-adjacent use in later tasks. If the linter complains that it is unused in this task, either remove it here and add it in Task 4, or use `gmailapi.GmailModifyScope` instead of the local constant. **Prefer removing the import in this task and adding it in Task 4** — this file must compile on its own.
 
+**Correction to the `Authorize` code above (ruling R6, applied during execution).**
+The block passes the literal `"state"` to `AuthCodeURL` and never validates a
+returned `state`. That is a CSRF control that does nothing: a constant is not a
+nonce, and the callback handler would accept an authorization code from anyone who
+can reach the ephemeral loopback port. Replace it with:
+
+1. A random, unguessable `state` generated per authorization from `crypto/rand`
+   (hex or base64).
+2. A comparison of `r.URL.Query().Get("state")` against that value inside the
+   `/callback` handler, before the code is sent on the channel. On mismatch,
+   respond with an error and do **not** exchange the code.
+3. PKCE, which is the primary code-interception defence for native apps:
+   `verifier := oauth2.GenerateVerifier()`, pass
+   `oauth2.S256ChallengeOption(verifier)` to `AuthCodeURL`, and
+   `oauth2.VerifierOption(verifier)` to `cfg.Exchange`.
+
+The `Authorize` signature does not change, so no later task is affected. This
+needs a covering test: a callback carrying a wrong `state` must produce an error
+and must leave no token file behind.
+
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `go test ./internal/gmail/ -v`
@@ -1083,9 +1119,13 @@ Expected: PASS in all three packages.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add internal/gmail/ cmd/emailcleaner/
+git add internal/gmail/ cmd/emailcleaner/ go.mod go.sum
 git commit -m "feat: add Gmail OAuth loopback flow and token store"
 ```
+
+`go.mod` and `go.sum` belong in this commit: this task is the first to pull in
+`golang.org/x/oauth2`, and a commit that leaves the dependency out produces a tree
+that does not build.
 
 ---
 
@@ -1733,12 +1773,46 @@ func (c *Client) Profile(ctx context.Context) (string, error) {
 Run: `go test ./internal/gmail/ -v`
 Expected: PASS. If `TestListMessagesFollowsPagination` reports a path mismatch, adjust the suffix in the handler — the service prefix differs between library versions and the assertion is intentionally anchored to the suffix.
 
+**Correction to every generated Gmail call in this plan (ruling R7, applied during
+execution).** The code blocks above call the generated client without a context:
+
+```go
+c.users.Messages.List("me").Q(query).MaxResults(int64(pageSize))
+c.users.Messages.Get("me", id).Format("full").Do()
+c.users.GetProfile("me").Do()
+c.users.Labels.List("me").Do()        // Task 5
+c.users.Labels.Create("me", &gmailapi.Label{…}).Do()   // Task 5
+```
+
+`google-api-go-client` stores the context in a `ctx_` field that only
+`.Context(ctx)` sets, and `gensupport.SendRequest` falls back to
+`client.Do(req)` when it is nil. So as written the `ctx` argument every one of
+these methods receives is **silently dropped**: cancellation and deadlines never
+reach the HTTP request, and a stalled connection hangs the run with no way to
+interrupt it. That defeats the cancellation the spec's error handling depends on.
+
+Every generated call in this plan must carry `.Context(ctx)`:
+
+```go
+c.users.Messages.List("me").Q(query).MaxResults(int64(pageSize)).Context(ctx)
+c.users.Messages.Get("me", id).Format("full").Context(ctx).Do()
+c.users.GetProfile("me").Context(ctx).Do()
+c.users.Labels.List("me").Context(ctx).Do()
+c.users.Labels.Create("me", &gmailapi.Label{…}).Context(ctx).Do()
+```
+
+This is testable and must be covered: a call made with an already-cancelled
+context must return an error rather than succeeding.
+
 - [ ] **Step 9: Commit**
 
 ```bash
-git add internal/gmail/
+git add internal/gmail/ go.mod go.sum
 git commit -m "feat: add Gmail client with paginated listing and message translation"
 ```
+
+Include `go.mod` and `go.sum`: this task is the first to import the Gmail API
+package, so the dependency requirement changes here.
 
 ---
 
@@ -1751,6 +1825,18 @@ git commit -m "feat: add Gmail client with paginated listing and message transla
 **Interfaces:**
 - Consumes: `*Client` from Task 4.
 - Produces: `(*Client).EnsureLabel(ctx context.Context, name string) (string, error)` returning the Gmail label ID.
+
+**Ruling R7 applies to this task too.** The correction note lives in Task 4's
+section, but the two calls this task writes are among the ones it names:
+
+```go
+c.users.Labels.List("me").Context(ctx).Do()
+c.users.Labels.Create("me", &gmailapi.Label{…}).Context(ctx).Do()
+```
+
+Without `.Context(ctx)` the `ctx` argument `EnsureLabel` accepts is silently
+dropped and cancellation never reaches the request. Do not transcribe this task's
+code block below without adding it.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1916,7 +2002,7 @@ git commit -m "feat: add idempotent Gmail label creation"
 **Files:**
 - Create: `cmd/emailcleaner/setup.go`
 - Create: `cmd/emailcleaner/setup_test.go`
-- Modify: `cmd/emailcleaner/main.go` (app struct fields, `main()` wiring)
+- Modify: `cmd/emailcleaner/main.go` (app struct fields, `main()` wiring, the `setup` case in the dispatcher and its usage line)
 - Modify: `cmd/emailcleaner/main_test.go` (helpers)
 
 **Interfaces:**
@@ -2041,7 +2127,7 @@ func TestSetupReportsMissingConfigAsUsageError(t *testing.T) {
 }
 ```
 
-Add this helper to `cmd/emailcleaner/main_test.go`:
+`writeConfig` already exists in `cmd/emailcleaner/main_test.go` from Task 2 — do not add a second copy. Only `newTestApp` changes here, to set the two new injected fields:
 
 ```go
 func writeConfig(t *testing.T) string {
@@ -2106,12 +2192,23 @@ func main() {
 		configPath: "config.yaml",
 		stdout:     os.Stdout,
 		stderr:     os.Stderr,
-		authorize:  authorize,
 		checkToken: checkToken,
 		openGmail:  newGmailAccess,
 	}
+	a.authorize = a.interactiveAuthorize // method value; see ruling R8
 	os.Exit(a.run(os.Args[1:]))
 }
+```
+
+Then add the command to the dispatcher in the same file: the `setup` case in `run`, and its line in the `usage` text.
+
+```go
+	case "setup":
+		return a.setup(rest)
+```
+
+```go
+  setup    Authorize with Gmail and create any missing labels. Idempotent.
 ```
 
 - [ ] **Step 4: Write the setup command**
@@ -2132,9 +2229,19 @@ import (
 	"emailcleaner/internal/gmail"
 )
 
-// authorize runs the interactive OAuth flow, sending the consent URL to stdout.
-func authorize(ctx context.Context, cfg *config.Config) error {
-	_, err := gmail.Authorize(ctx, cfg.Gmail.CredentialsFile, cfg.Gmail.TokenFile, os.Stdout)
+// authorize runs the interactive OAuth flow, sending the consent URL to the
+// app's stdout so the whole command's output stays capturable.
+//
+// Ruling R8: this used to write to the process-global os.Stdout, which split the
+// command's output contract — every other line setup prints goes to a.stdout and
+// this, the one string the user must act on, bypassed it. It is a method now.
+//
+// The method must NOT be named `authorize`: Go forbids a method whose name
+// collides with a field on the same type, so `a.authorize = a.authorize` does not
+// compile ("field and method with the same name"). Name it `interactiveAuthorize`
+// and assign `a.authorize = a.interactiveAuthorize` in main().
+func (a *app) interactiveAuthorize(ctx context.Context, cfg *config.Config) error {
+	_, err := gmail.Authorize(ctx, cfg.Gmail.CredentialsFile, cfg.Gmail.TokenFile, a.stdout)
 	return err
 }
 
@@ -2245,7 +2352,7 @@ git commit -m "feat: add setup command that authorizes and creates labels"
 **Files:**
 - Create: `cmd/emailcleaner/list.go`
 - Create: `cmd/emailcleaner/list_test.go`
-- Modify: `cmd/emailcleaner/main.go` (`gmailAccess` gains two read methods)
+- Modify: `cmd/emailcleaner/main.go` (`gmailAccess` gains two read methods, plus the `list` case in the dispatcher and its usage line)
 - Modify: `cmd/emailcleaner/setup_test.go` (`fakeGmail` gains the two read methods)
 
 **Interfaces:**
@@ -2512,6 +2619,17 @@ func (f *fakeGmail) GetMessage(_ context.Context, id string) (*gmail.Message, er
 ```
 
 Add `"emailcleaner/internal/gmail"` to that file's imports.
+
+Then add the command to the dispatcher in the same file: the `list` case in `run`, and its line in the `usage` text.
+
+```go
+	case "list":
+		return a.list(rest)
+```
+
+```go
+  list     Print the headers of unprocessed inbox messages.
+```
 
 - [ ] **Step 5: Add the listing tests**
 

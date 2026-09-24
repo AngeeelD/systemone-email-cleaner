@@ -344,6 +344,8 @@ audit:
 ```
 emailcleaner setup       # OAuth + create missing labels. Idempotent.
 emailcleaner status      # Token health + last run summary.
+emailcleaner list        # Print the headers of unprocessed inbox messages. Read-only.
+    --limit N                  examine at most N messages (at least 1)
 emailcleaner run         # Classify and act.
     --dry-run                  print the plan, write nothing
     --limit N                  examine at most N messages
@@ -354,6 +356,10 @@ emailcleaner run         # Classify and act.
 emailcleaner rollback    # Undo a run (default: the latest).
     --run-id X
 ```
+
+`list` is a permanent debugging aid, not a milestone-1 stopgap: it prints
+`date  from-domain  subject` for each unprocessed inbox message and changes
+nothing, so it stays useful for inspecting what a run would see.
 
 ## Error Handling, Pause and Resume
 
