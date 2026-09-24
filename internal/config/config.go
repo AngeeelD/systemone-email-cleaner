@@ -42,7 +42,8 @@ type Policy struct {
 }
 
 type Extract struct {
-	BodyPreviewChars int `yaml:"body_preview_chars"`
+	BodyPreviewChars             int `yaml:"body_preview_chars"`
+	BodyPreviewCharsMultilingual int `yaml:"body_preview_chars_multilingual"`
 }
 
 type Audit struct {
@@ -84,7 +85,7 @@ func Default() *Config {
 			"banking":       "cleaner/banking",
 			"unclassified":  "cleaner/unclassified",
 		},
-		Extract: Extract{BodyPreviewChars: 800},
+		Extract: Extract{BodyPreviewChars: 800, BodyPreviewCharsMultilingual: 1600},
 		Audit:   Audit{Dir: "audit"},
 	}
 }

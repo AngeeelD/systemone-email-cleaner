@@ -20,5 +20,6 @@ labels:
   unclassified: cleaner/unclassified
 extract:
   body_preview_chars: 800
+  body_preview_chars_multilingual: 1600
 audit:
   dir: audit
