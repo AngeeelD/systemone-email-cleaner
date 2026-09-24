@@ -116,4 +116,4 @@ go vet ./...
 
 ## License
 
-Not yet chosen.
+[MIT](LICENSE) — free to use, modify, and distribute.
