@@ -81,6 +81,7 @@ func Default() *Config {
 			"security":      "cleaner/security",
 			"accounts":      "cleaner/accounts",
 			"opportunities": "cleaner/opportunities",
+			"banking":       "cleaner/banking",
 			"unclassified":  "cleaner/unclassified",
 		},
 		Extract: Extract{BodyPreviewChars: 800},

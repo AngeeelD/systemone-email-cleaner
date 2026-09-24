@@ -36,6 +36,7 @@ func okResponse() map[string]any {
 			"is_security":    map[string]any{"choice": "B", "confidence": 0.99},
 			"is_purchase":    map[string]any{"choice": "A", "confidence": 0.88},
 			"is_opportunity": map[string]any{"choice": "B", "confidence": 0.76},
+			"is_banking":     map[string]any{"choice": "B", "confidence": 0.93},
 		},
 		"routing": map[string]any{"model": "multilingual"},
 		"model":   "multilingual",
@@ -88,10 +89,10 @@ func TestPredict_Success_AllSixAnswers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Predict error: %v", err)
 	}
-	if len(ans) != 6 {
-		t.Fatalf("answers len = %d, want 6", len(ans))
+	if len(ans) != 7 {
+		t.Fatalf("answers len = %d, want 7", len(ans))
 	}
-	for _, key := range []string{"is_junk", "is_person", "needs_action", "is_security", "is_purchase", "is_opportunity"} {
+	for _, key := range []string{"is_junk", "is_person", "needs_action", "is_security", "is_purchase", "is_opportunity", "is_banking"} {
 		a, ok := ans[key]
 		if !ok {
 			t.Errorf("missing answer %q", key)
@@ -108,11 +109,14 @@ func TestPredict_Success_AllSixAnswers(t *testing.T) {
 	if gotState.Subject != "Invoice #4411" {
 		t.Errorf("forwarded state subject = %q, want %q", gotState.Subject, "Invoice #4411")
 	}
-	if len(gotQuestions) != 6 {
-		t.Errorf("forwarded questions len = %d, want 6", len(gotQuestions))
+	if len(gotQuestions) != 7 {
+		t.Errorf("forwarded questions len = %d, want 7", len(gotQuestions))
 	}
 	if _, ok := gotQuestions["is_junk"]; !ok {
 		t.Error("forwarded questions missing is_junk")
+	}
+	if _, ok := gotQuestions["is_banking"]; !ok {
+		t.Error("forwarded questions missing is_banking")
 	}
 }
 
@@ -468,10 +472,10 @@ func TestPing_WithAPIKey(t *testing.T) {
 }
 
 func TestDefaultQuestions_Complete(t *testing.T) {
-	if len(DefaultQuestions) != 6 {
-		t.Fatalf("DefaultQuestions len = %d, want 6", len(DefaultQuestions))
+	if len(DefaultQuestions) != 7 {
+		t.Fatalf("DefaultQuestions len = %d, want 7", len(DefaultQuestions))
 	}
-	for _, key := range []string{"is_junk", "is_person", "needs_action", "is_security", "is_purchase", "is_opportunity"} {
+	for _, key := range []string{"is_junk", "is_person", "needs_action", "is_security", "is_purchase", "is_opportunity", "is_banking"} {
 		q, ok := DefaultQuestions[key]
 		if !ok {
 			t.Errorf("missing question %q", key)
@@ -492,5 +496,30 @@ func TestDefaultQuestions_Complete(t *testing.T) {
 		if q.Instructions == "" {
 			t.Errorf("question %q instructions empty", key)
 		}
+	}
+	// Verify is_banking criteria values exactly as specified.
+	if q := DefaultQuestions["is_banking"]; q.Criteria["A"] != "yes, bank/fintech transaction notification" {
+		t.Errorf("is_banking criteria A = %q, want %q", q.Criteria["A"], "yes, bank/fintech transaction notification")
+	}
+	if q := DefaultQuestions["is_banking"]; q.Criteria["B"] != "no, not a banking notification" {
+		t.Errorf("is_banking criteria B = %q, want %q", q.Criteria["B"], "no, not a banking notification")
+	}
+	// is_junk must explicitly exclude banking.
+	if q := DefaultQuestions["is_junk"]; !strings.Contains(q.Instructions, "Bank deposits, withdrawals, transfers, and balance alerts are NOT junk") {
+		t.Errorf("is_junk instructions missing banking exclusion, got %q", q.Instructions)
+	}
+	if q := DefaultQuestions["is_junk"]; !strings.Contains(q.Instructions, "Do not count account alerts as junk") {
+		t.Errorf("is_junk instructions missing account alerts phrase, got %q", q.Instructions)
+	}
+	// is_purchase must include e-commerce order status phrases.
+	if q := DefaultQuestions["is_purchase"]; !strings.Contains(q.Instructions, "pedido confirmado/enviado/entregado") {
+		t.Errorf("is_purchase instructions missing e-commerce phrases, got %q", q.Instructions)
+	}
+	if q := DefaultQuestions["is_purchase"]; !strings.Contains(q.Instructions, "recibo de pago") {
+		t.Errorf("is_purchase instructions missing recibo de pago, got %q", q.Instructions)
+	}
+	// is_banking must contain Spanish keywords.
+	if q := DefaultQuestions["is_banking"]; !strings.Contains(q.Instructions, "depósitos, retiros, transferencias") {
+		t.Errorf("is_banking instructions missing Spanish keywords, got %q", q.Instructions)
 	}
 }

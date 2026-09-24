@@ -16,6 +16,7 @@ labels:
   security: cleaner/security
   accounts: cleaner/accounts
   opportunities: cleaner/opportunities
+  banking: cleaner/banking
   unclassified: cleaner/unclassified
 extract:
   body_preview_chars: 800

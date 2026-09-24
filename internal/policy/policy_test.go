@@ -22,6 +22,7 @@ func defaultLabels() map[string]string {
 		"security":      "cleaner/security",
 		"accounts":      "cleaner/accounts",
 		"opportunities": "cleaner/opportunities",
+		"banking":       "cleaner/banking",
 		"unclassified":  "cleaner/unclassified",
 	}
 }
@@ -54,7 +55,7 @@ func TestDecide(t *testing.T) {
 		wantReason string // substring that must appear in Reason; empty means no check
 	}{
 		{
-			name: "junk above threshold trash only even if topics also above",
+			name: "junk above threshold with topics above does NOT trash (banking-aware gate)",
 			answers: laya.Answers{
 				"is_junk":        ans("A", 0.95),
 				"is_person":      ans("A", 0.99),
@@ -65,10 +66,10 @@ func TestDecide(t *testing.T) {
 			},
 			policy:     defaultPolicy(),
 			labels:     defaultLabels(),
-			wantKind:   KindTrash,
-			wantTrash:  true,
-			wantLabels: nil,
-			wantReason: "is_junk",
+			wantKind:   KindLabel,
+			wantTrash:  false,
+			wantLabels: []string{"cleaner/people", "cleaner/action", "cleaner/security", "cleaner/accounts", "cleaner/opportunities"},
+			wantReason: "is_person",
 		},
 		{
 			name: "junk at threshold exactly 0.90 trash inclusive",
@@ -504,6 +505,177 @@ func TestDecide(t *testing.T) {
 			wantLabels: []string{"cleaner/people", "cleaner/action", "cleaner/security"},
 			wantReason: "is_person",
 		},
+		{
+			name: "is_banking above threshold alone",
+			answers: laya.Answers{
+				"is_banking": ans("A", 0.85),
+			},
+			policy:     defaultPolicy(),
+			labels:     defaultLabels(),
+			wantKind:   KindLabel,
+			wantTrash:  false,
+			wantLabels: []string{"cleaner/banking"},
+			wantReason: "is_banking",
+		},
+		{
+			name: "is_banking below threshold unclassified",
+			answers: laya.Answers{
+				"is_banking": ans("A", 0.69),
+			},
+			policy:     defaultPolicy(),
+			labels:     defaultLabels(),
+			wantKind:   KindUnclassified,
+			wantTrash:  false,
+			wantLabels: []string{"cleaner/unclassified"},
+			wantReason: "unclassified",
+		},
+		{
+			name: "is_banking at exactly 0.70 inclusive",
+			answers: laya.Answers{
+				"is_banking": ans("A", 0.70),
+			},
+			policy:     defaultPolicy(),
+			labels:     defaultLabels(),
+			wantKind:   KindLabel,
+			wantTrash:  false,
+			wantLabels: []string{"cleaner/banking"},
+			wantReason: "is_banking",
+		},
+		{
+			name: "junk 1.00 with is_banking 0.95 not trash but banking label",
+			answers: laya.Answers{
+				"is_junk":    ans("A", 1.00),
+				"is_banking": ans("A", 0.95),
+			},
+			policy:     defaultPolicy(),
+			labels:     defaultLabels(),
+			wantKind:   KindLabel,
+			wantTrash:  false,
+			wantLabels: []string{"cleaner/banking"},
+			wantReason: "is_banking",
+		},
+		{
+			name: "junk 1.00 with is_purchase 0.90 not trash but accounts label",
+			answers: laya.Answers{
+				"is_junk":     ans("A", 1.00),
+				"is_purchase": ans("A", 0.90),
+			},
+			policy:     defaultPolicy(),
+			labels:     defaultLabels(),
+			wantKind:   KindLabel,
+			wantTrash:  false,
+			wantLabels: []string{"cleaner/accounts"},
+			wantReason: "is_purchase",
+		},
+		{
+			name: "junk 1.00 with is_security 0.90 not trash",
+			answers: laya.Answers{
+				"is_junk":     ans("A", 1.00),
+				"is_security": ans("A", 0.90),
+			},
+			policy:     defaultPolicy(),
+			labels:     defaultLabels(),
+			wantKind:   KindLabel,
+			wantTrash:  false,
+			wantLabels: []string{"cleaner/security"},
+			wantReason: "is_security",
+		},
+		{
+			name: "junk 1.00 with banking below threshold still trash",
+			answers: laya.Answers{
+				"is_junk":    ans("A", 1.00),
+				"is_banking": ans("A", 0.69),
+			},
+			policy:     defaultPolicy(),
+			labels:     defaultLabels(),
+			wantKind:   KindTrash,
+			wantTrash:  true,
+			wantLabels: nil,
+			wantReason: "is_junk",
+		},
+		{
+			name: "all six topics above including banking",
+			answers: laya.Answers{
+				"is_person":      ans("A", 0.80),
+				"needs_action":   ans("A", 0.80),
+				"is_security":    ans("A", 0.80),
+				"is_purchase":    ans("A", 0.80),
+				"is_opportunity": ans("A", 0.80),
+				"is_banking":     ans("A", 0.80),
+			},
+			policy:     defaultPolicy(),
+			labels:     defaultLabels(),
+			wantKind:   KindLabel,
+			wantTrash:  false,
+			wantLabels: []string{"cleaner/people", "cleaner/action", "cleaner/security", "cleaner/accounts", "cleaner/opportunities", "cleaner/banking"},
+			wantReason: "is_person",
+		},
+		{
+			name: "junk 1.00 with all six topics 0.80 not trash but six labels",
+			answers: laya.Answers{
+				"is_junk":        ans("A", 1.00),
+				"is_person":      ans("A", 0.80),
+				"needs_action":   ans("A", 0.80),
+				"is_security":    ans("A", 0.80),
+				"is_purchase":    ans("A", 0.80),
+				"is_opportunity": ans("A", 0.80),
+				"is_banking":     ans("A", 0.80),
+			},
+			policy:     defaultPolicy(),
+			labels:     defaultLabels(),
+			wantKind:   KindLabel,
+			wantTrash:  false,
+			wantLabels: []string{"cleaner/people", "cleaner/action", "cleaner/security", "cleaner/accounts", "cleaner/opportunities", "cleaner/banking"},
+			wantReason: "is_person",
+		},
+		{
+			name: "banking custom label from config",
+			answers: laya.Answers{
+				"is_banking": ans("A", 0.80),
+			},
+			policy: defaultPolicy(),
+			labels: map[string]string{
+				"people":        "my/people",
+				"action":        "my/action",
+				"security":      "my/security",
+				"accounts":      "my/accounts",
+				"opportunities": "my/opportunities",
+				"banking":       "my/banking",
+				"unclassified":  "my/unclassified",
+			},
+			wantKind:   KindLabel,
+			wantTrash:  false,
+			wantLabels: []string{"my/banking"},
+			wantReason: "is_banking",
+		},
+		{
+			name: "banking deterministic order last",
+			answers: laya.Answers{
+				"is_banking":   ans("A", 0.80),
+				"is_person":    ans("A", 0.80),
+				"is_purchase":  ans("A", 0.80),
+				"is_security":  ans("A", 0.80),
+				"needs_action": ans("A", 0.80),
+			},
+			policy:     defaultPolicy(),
+			labels:     defaultLabels(),
+			wantKind:   KindLabel,
+			wantTrash:  false,
+			wantLabels: []string{"cleaner/people", "cleaner/action", "cleaner/security", "cleaner/accounts", "cleaner/banking"},
+			wantReason: "is_person",
+		},
+		{
+			name: "is_banking choice case-insensitive and whitespace",
+			answers: laya.Answers{
+				"is_banking": ans(" a ", 0.80),
+			},
+			policy:     defaultPolicy(),
+			labels:     defaultLabels(),
+			wantKind:   KindLabel,
+			wantTrash:  false,
+			wantLabels: []string{"cleaner/banking"},
+			wantReason: "is_banking",
+		},
 	}
 
 	for _, tc := range tests {
@@ -556,7 +728,7 @@ func TestDecide_PurityAndCopy(t *testing.T) {
 	}
 	// Mutate input labels map should not affect previous result's defaults
 	labels["people"] = "changed"
-	got3 := Decide(answers, defaultPolicy(), map[string]string{"people": "cleaner/people", "action": "cleaner/action", "security": "cleaner/security", "accounts": "cleaner/accounts", "opportunities": "cleaner/opportunities", "unclassified": "cleaner/unclassified"})
+	got3 := Decide(answers, defaultPolicy(), map[string]string{"people": "cleaner/people", "action": "cleaner/action", "security": "cleaner/security", "accounts": "cleaner/accounts", "opportunities": "cleaner/opportunities", "banking": "cleaner/banking", "unclassified": "cleaner/unclassified"})
 	if got3.Labels[0] != "cleaner/people" {
 		t.Errorf("unexpected label after input mutation: %v", got3.Labels)
 	}

@@ -37,12 +37,12 @@ type Question struct {
 // Questions maps question name to its definition.
 type Questions map[string]Question
 
-// DefaultQuestions is the six-question taxonomy defined verbatim in the
-// design spec. Each question is a 2-option choice with neutral keys A/B.
+// DefaultQuestions is the seven-question taxonomy defined verbatim in the
+// design spec (plus is_banking). Each question is a 2-option choice with neutral keys A/B.
 var DefaultQuestions = Questions{
 	"is_junk": {
 		Type:         "choice",
-		Instructions: "Is this email unwanted bulk mail the recipient should not keep? Count as junk: marketing and promotions, newsletters the recipient did not sign up for, mass automated notifications, spam, phishing. Answer no if a real person wrote to the recipient, or if it may contain an invoice, an order, an account or security alert, or anything the recipient may need to act on. When unsure, answer no.",
+		Instructions: "Is this email unwanted bulk mail the recipient should not keep? Count as junk: marketing and promotions, newsletters the recipient did not sign up for, mass automated notifications, spam, phishing. Answer no if a real person wrote to the recipient, or if it may contain an invoice, an order, an account or security alert, or anything the recipient may need to act on. When unsure, answer no. Bank deposits, withdrawals, transfers, and balance alerts are NOT junk; when in doubt answer B. Do not count account alerts as junk.",
 		Criteria: map[string]string{
 			"A": "yes, unwanted bulk or junk mail",
 			"B": "no, this is not junk",
@@ -74,7 +74,7 @@ var DefaultQuestions = Questions{
 	},
 	"is_purchase": {
 		Type:         "choice",
-		Instructions: "Is this about a purchase or a delivery? Count: order confirmations, receipts, invoices for something bought, shipping and tracking updates, reservations, active subscription notices.",
+		Instructions: "Is this about a purchase or a delivery? Count: order confirmations, receipts, invoices for something bought, shipping and tracking updates, reservations, active subscription notices. Also count: order status updates (pedido confirmado/enviado/entregado/en proceso), delivery tracking, receipts (recibo de pago), tickets (Su Ticket).",
 		Criteria: map[string]string{
 			"A": "yes, purchase, receipt or delivery",
 			"B": "no, not about a purchase",
@@ -86,6 +86,14 @@ var DefaultQuestions = Questions{
 		Criteria: map[string]string{
 			"A": "yes, a professional opportunity",
 			"B": "no, not an opportunity",
+		},
+	},
+	"is_banking": {
+		Type:         "choice",
+		Instructions: "Is this a bank or fintech notification about a deposit, withdrawal, transfer, card charge, balance alert, or account statement? Count: depósitos, retiros, transferencias, cargos, saldo, estado de cuenta, alta de destinatario. Answer yes only for financial transaction notifications, not for marketing about banking products.",
+		Criteria: map[string]string{
+			"A": "yes, bank/fintech transaction notification",
+			"B": "no, not a banking notification",
 		},
 	},
 }

@@ -65,7 +65,7 @@ func TestSetupCreatesEveryConfiguredLabel(t *testing.T) {
 	}
 
 	want := []string{
-		"cleaner/accounts", "cleaner/action", "cleaner/opportunities",
+		"cleaner/accounts", "cleaner/action", "cleaner/banking", "cleaner/opportunities",
 		"cleaner/people", "cleaner/security", "cleaner/unclassified",
 	}
 	if len(fake.ensured) != len(want) {

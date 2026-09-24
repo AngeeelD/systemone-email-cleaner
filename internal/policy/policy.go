@@ -49,12 +49,19 @@ var topicOrder = []topicDef{
 	{Question: "is_security", LabelKey: "security", DefaultLabel: "cleaner/security"},
 	{Question: "is_purchase", LabelKey: "accounts", DefaultLabel: "cleaner/accounts"},
 	{Question: "is_opportunity", LabelKey: "opportunities", DefaultLabel: "cleaner/opportunities"},
+	{Question: "is_banking", LabelKey: "banking", DefaultLabel: "cleaner/banking"},
 }
 
 // Decide applies the four-step policy from the spec in order:
 //
-//  1. is_junk == A and confidence >= min_confidence_junk → Trash (no other action).
+//  1. is_junk == A and confidence >= min_confidence_junk → Trash ONLY if no
+//     other topic (is_person, needs_action, is_security, is_purchase,
+//     is_opportunity, is_banking) is >= min_confidence_topic. If any topic
+//     clears threshold, do NOT trash even if is_junk is 1.00; proceed to
+//     label topics. This prevents banking/purchase messages misclassified as
+//     junk from being trashed.
 //  2. For each topic answered A with confidence >= min_confidence_topic → add its label.
+//     Includes is_banking → cleaner/banking.
 //  3. Not junk and no topic cleared threshold → cleaner/unclassified.
 //  4. INBOX is never removed except when Trash (ShouldTrash).
 //
@@ -62,13 +69,22 @@ var topicOrder = []topicDef{
 // answers are treated as "no". Choice comparison is case-insensitive and
 // whitespace-trimmed. Threshold comparison is inclusive (>=).
 func Decide(answers laya.Answers, cfg config.Policy, labels map[string]string) Action {
-	// Step 1: junk gate (hardest, exclusive).
+	// Step 1: junk gate — exclusive only when no other topic fires.
 	if ans, ok := answers["is_junk"]; ok && isYes(ans, cfg.MinConfidenceJunk) {
-		return Action{
-			Kind:        KindTrash,
-			Labels:      nil,
-			ShouldTrash: true,
-			Reason:      fmt.Sprintf("is_junk conf=%.2f >= %.2f", ans.Confidence, cfg.MinConfidenceJunk),
+		hasTopic := false
+		for _, td := range topicOrder {
+			if tAns, ok := answers[td.Question]; ok && isYes(tAns, cfg.MinConfidenceTopic) {
+				hasTopic = true
+				break
+			}
+		}
+		if !hasTopic {
+			return Action{
+				Kind:        KindTrash,
+				Labels:      nil,
+				ShouldTrash: true,
+				Reason:      fmt.Sprintf("is_junk conf=%.2f >= %.2f", ans.Confidence, cfg.MinConfidenceJunk),
+			}
 		}
 	}
 
