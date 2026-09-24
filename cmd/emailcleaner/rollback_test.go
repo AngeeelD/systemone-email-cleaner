@@ -116,13 +116,13 @@ func TestRollback_SkipsWhenLabelMissing(t *testing.T) {
 		Subject:      "Subject2",
 		Outcome:      "applied",
 		LabelsBefore: []string{"INBOX"},
-		LabelsAfter:  []string{"INBOX", "cleaner/action"},
-		Action:       &audit.Action{Add: []string{"cleaner/action"}},
+		LabelsAfter:  []string{"INBOX", "cleaner/people"},
+		Action:       &audit.Action{Add: []string{"cleaner/people"}},
 	}
 	if err := audit.Append(auditDir, rec); err != nil {
 		t.Fatal(err)
 	}
-	// Message no longer has cleaner/action (user removed)
+	// Message no longer has cleaner/people (user removed)
 	fg := &fakeRollbackGmail{
 		messages: map[string]*gmail.Message{
 			"msg2": {ID: "msg2", LabelIDs: []string{"INBOX"}},

@@ -238,10 +238,9 @@ default nothing is processed twice.
 | Label | Meaning |
 |---|---|
 | `cleaner/people` | A real person writing to the user |
-| `cleaner/action` | Requires a reply or an action |
+| `cleaner/banking` | A bank or fintech transaction |
 | `cleaner/security` | Account and security notices |
 | `cleaner/accounts` | Purchases and deliveries |
-| `cleaner/opportunities` | Professional opportunities |
 | `cleaner/unclassified` | Below threshold — manual review |
 | *(no label)* | Junk → Trash |
 
@@ -328,10 +327,9 @@ policy:
   min_confidence_topic: 0.70
 labels:
   people: cleaner/people
-  action: cleaner/action
   security: cleaner/security
   accounts: cleaner/accounts
-  opportunities: cleaner/opportunities
+  banking: cleaner/banking
   unclassified: cleaner/unclassified
 extract:
   body_preview_chars: 800

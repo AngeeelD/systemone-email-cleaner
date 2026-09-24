@@ -28,9 +28,9 @@ func TestUnprocessedQueryExcludesEveryConfiguredLabel(t *testing.T) {
 
 func TestUnprocessedQueryIsDeterministic(t *testing.T) {
 	labels := map[string]string{
-		"opportunities": "cleaner/opportunities",
-		"accounts":      "cleaner/accounts",
-		"action":        "cleaner/action",
+		"people":   "cleaner/people",
+		"accounts": "cleaner/accounts",
+		"banking":  "cleaner/banking",
 	}
 
 	first := unprocessedQuery(labels)

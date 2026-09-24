@@ -17,13 +17,11 @@ func defaultPolicy() config.Policy {
 
 func defaultLabels() map[string]string {
 	return map[string]string{
-		"people":        "cleaner/people",
-		"action":        "cleaner/action",
-		"security":      "cleaner/security",
-		"accounts":      "cleaner/accounts",
-		"opportunities": "cleaner/opportunities",
-		"banking":       "cleaner/banking",
-		"unclassified":  "cleaner/unclassified",
+		"people":       "cleaner/people",
+		"security":     "cleaner/security",
+		"accounts":     "cleaner/accounts",
+		"banking":      "cleaner/banking",
+		"unclassified": "cleaner/unclassified",
 	}
 }
 
@@ -409,13 +407,11 @@ func TestDecide(t *testing.T) {
 			},
 			policy: defaultPolicy(),
 			labels: map[string]string{
-				"people":        "my/people",
-				"action":        "my/action",
-				"security":      "my/security",
-				"accounts":      "my/accounts",
-				"opportunities": "my/opportunities",
-				"banking":       "my/banking",
-				"unclassified":  "my/unclassified",
+				"people":       "my/people",
+				"security":     "my/security",
+				"accounts":     "my/accounts",
+				"banking":      "my/banking",
+				"unclassified": "my/unclassified",
 			},
 			wantKind:   KindLabel,
 			wantTrash:  false,
@@ -604,13 +600,11 @@ func TestDecide(t *testing.T) {
 			},
 			policy: defaultPolicy(),
 			labels: map[string]string{
-				"people":        "my/people",
-				"action":        "my/action",
-				"security":      "my/security",
-				"accounts":      "my/accounts",
-				"opportunities": "my/opportunities",
-				"banking":       "my/banking",
-				"unclassified":  "my/unclassified",
+				"people":       "my/people",
+				"security":     "my/security",
+				"accounts":     "my/accounts",
+				"banking":      "my/banking",
+				"unclassified": "my/unclassified",
 			},
 			wantKind:   KindLabel,
 			wantTrash:  false,

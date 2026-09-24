@@ -12,10 +12,8 @@ policy:
   min_confidence_topic: 0.60
 labels:
   people: cleaner/people
-  action: cleaner/action
   security: cleaner/security
   accounts: cleaner/accounts
-  opportunities: cleaner/opportunities
   banking: cleaner/banking
   unclassified: cleaner/unclassified
 extract:
