@@ -303,13 +303,14 @@ func (a *app) runCmd(args []string) int {
 		fmt.Fprintf(a.stdout, "dry-run: would process %d message(s) matching %q\n", len(ids), query)
 	}
 
-	// Rate limiter: 6000 units/min ~ 100 units/sec. One Get costs 20 units => ~5 gets/sec.
-	// Use safe fraction: 3 per second, burst = workers to allow initial burst for small runs/tests.
+	// Gmail allows 6000 query-cost units/min/user. messages.get is the expensive
+	// call (~20 units) and every message also costs a modify, so 2/s stays well
+	// under the budget and leaves headroom for retries.
 	burst := *workers
 	if burst < 5 {
 		burst = 5
 	}
-	limiter := rate.NewLimiter(rate.Limit(3), burst)
+	limiter := rate.NewLimiter(rate.Limit(2), burst)
 
 	var outMu sync.Mutex
 	var stderrMu sync.Mutex
@@ -328,6 +329,10 @@ func (a *app) runCmd(args []string) int {
 	// Live progress on stderr while the run is in flight. It is silent when
 	// stderr is not a terminal (cron, redirected logs).
 	prog := newRunProgress(a.stderr, len(ids), nil)
+
+	// When Gmail reports the per-minute quota is exhausted, every worker waits
+	// out the window rather than retrying into it and burning more quota.
+	quota := newQuotaGate(60*time.Second, clock)
 
 	type result struct {
 		rec audit.Record
@@ -360,7 +365,10 @@ func (a *app) runCmd(args []string) int {
 	for i := 0; i < *workers; i++ {
 		g.Go(func() error {
 			for id := range idCh {
-				// Rate limit
+				// Wait out any quota pause first, then take a rate-limit token.
+				if err := quota.wait(gctx); err != nil {
+					return err
+				}
 				if limiter != nil {
 					if err := limiter.Wait(gctx); err != nil {
 						return err
@@ -384,6 +392,10 @@ func (a *app) runCmd(args []string) int {
 					} else if rec.Outcome == "applied" {
 						cb.success()
 					}
+				}
+
+				if isRateLimited(err) {
+					quota.trip()
 				}
 
 				if rec.MessageID == "" {

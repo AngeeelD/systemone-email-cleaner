@@ -63,6 +63,11 @@ not a terminal, so cron and redirected logs stay clean), prints a line for every
 error or skip as it happens, and **exits non-zero when any message failed** — so
 cron can tell a broken run from a clean one.
 
+Runs also self-throttle: Gmail calls are paced under the 6000 units/min quota, and
+when the quota is exhausted (`403 … RATE_LIMIT_EXCEEDED`) every worker pauses for
+the window instead of retrying into it. A message that still failed was never
+tagged, so the next run picks it up.
+
 ## Labels
 
 | Label | Meaning |
