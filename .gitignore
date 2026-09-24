@@ -13,3 +13,8 @@ config.yaml
 
 # Subagent-driven-development scratch (ledger, briefs, review packages)
 .superpowers/
+
+# Local tooling state (skill registry, LSP project config) — carries absolute
+# paths from this machine and is not part of the project.
+.atl/
+.serena/
